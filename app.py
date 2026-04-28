@@ -5,389 +5,472 @@ import numpy as np
 from groq import Groq
 
 # ─────────────────────────────────────────
+# CONFIG — put your Groq key here
+# ─────────────────────────────────────────
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL   = "llama-3.3-70b-versatile"
+
+# ─────────────────────────────────────────
 # PAGE CONFIG
 # ─────────────────────────────────────────
 st.set_page_config(
-    page_title="Gala.AI — Cebu Travel Guide",
+    page_title="Gala.AI",
     page_icon="🌴",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ─────────────────────────────────────────
-# DESIGN SYSTEM & CSS
+# CSS
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,700;0,900;1,300;1,700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap');
 
-/* ── DESIGN TOKENS ── */
 :root {
-    --ink:        #0e1a12;
-    --forest:     #1b4332;
-    --jade:       #2d6a4f;
-    --seafoam:    #52b788;
-    --mist:       #d8f3dc;
-    --sand:       #fdf8f0;
-    --gold:       #e9c46a;
-    --coral:      #e76f51;
-    --white:      #ffffff;
-    --radius-lg:  16px;
-    --radius-xl:  24px;
-    --radius-pill:50px;
-    --shadow-sm:  0 2px 8px rgba(14,26,18,0.08);
-    --shadow-md:  0 8px 32px rgba(14,26,18,0.12);
-    --shadow-lg:  0 20px 60px rgba(14,26,18,0.18);
-    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --bg:         #0f1117;
+    --surface:    #1a1d27;
+    --surface2:   #22263a;
+    --border:     rgba(255,255,255,0.08);
+    --green:      #4ade80;
+    --green-dim:  rgba(74,222,128,0.12);
+    --green-glow: rgba(74,222,128,0.25);
+    --white:      #f0f2f8;
+    --muted:      rgba(240,242,248,0.45);
+    --user-bg:    #2a2d3e;
+    --radius:     14px;
+    --radius-lg:  20px;
+    --pill:       999px;
 }
 
-/* ── RESET & BASE ── */
+/* ── BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, [class*="css"] {
-    font-family: 'Cabinet Grotesk', sans-serif !important;
-    background: var(--sand) !important;
-    color: var(--ink) !important;
+    font-family: 'Sora', sans-serif !important;
+    background: var(--bg) !important;
+    color: var(--white) !important;
 }
 
 /* ── HIDE STREAMLIT CHROME ── */
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer, header, [data-testid="stToolbar"],
+[data-testid="stDecoration"], [data-testid="stStatusWidget"] {
+    display: none !important;
+}
 .block-container {
     padding: 0 !important;
     max-width: 100% !important;
 }
-section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 0 !important;
-}
+section[data-testid="stSidebar"] { display: none !important; }
 
 /* ════════════════════════════════════════
-   SIDEBAR
+   APP SHELL — full viewport chat layout
 ════════════════════════════════════════ */
-section[data-testid="stSidebar"] {
-    background: var(--forest) !important;
-    border-right: none !important;
-    box-shadow: 4px 0 24px rgba(14,26,18,0.2) !important;
-}
-section[data-testid="stSidebar"] * { color: var(--white) !important; }
-
-.sidebar-brand {
-    padding: 2rem 1.5rem 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 1.5rem;
-}
-.sidebar-logo { font-size: 2.8rem; line-height: 1; margin-bottom: 0.5rem; }
-.sidebar-name {
-    font-family: 'Fraunces', serif !important;
-    font-size: 1.8rem !important;
-    font-weight: 900 !important;
-    letter-spacing: -1px;
-    line-height: 1;
-    color: var(--white) !important;
-}
-.sidebar-name span { color: var(--seafoam) !important; }
-.sidebar-sub {
-    font-size: 0.75rem !important;
-    opacity: 0.55;
-    margin-top: 0.3rem;
-    font-weight: 300 !important;
-}
-.sidebar-section { padding: 0 1.5rem; margin-bottom: 1.5rem; }
-.sidebar-label {
-    font-size: 0.65rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    opacity: 0.4;
-    margin-bottom: 0.75rem;
-    display: block;
-}
-.sidebar-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: var(--radius-pill);
-    padding: 0.35rem 0.75rem;
-    font-size: 0.78rem !important;
-    margin: 0.2rem 0.2rem 0.2rem 0;
-    color: rgba(255,255,255,0.85) !important;
-}
-.sidebar-tip {
-    font-size: 0.8rem !important;
-    opacity: 0.6;
-    line-height: 1.6;
-    font-style: italic;
-    border-left: 2px solid var(--seafoam);
-    padding-left: 0.75rem;
-    margin-bottom: 0.5rem;
-}
-.sidebar-footer {
-    padding: 1.5rem;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    font-size: 0.7rem !important;
-    opacity: 0.35;
-    text-align: center;
-    line-height: 1.8;
-}
-
-section[data-testid="stSidebar"] .stTextInput input {
-    background: rgba(255,255,255,0.08) !important;
-    border: 1px solid rgba(255,255,255,0.2) !important;
-    border-radius: var(--radius-lg) !important;
-    color: var(--white) !important;
-    font-size: 0.85rem !important;
-    padding: 0.6rem 1rem !important;
-}
-section[data-testid="stSidebar"] .stTextInput input::placeholder {
-    color: rgba(255,255,255,0.35) !important;
-}
-section[data-testid="stSidebar"] .stTextInput input:focus {
-    border-color: var(--seafoam) !important;
-    box-shadow: 0 0 0 3px rgba(82,183,136,0.2) !important;
-    outline: none !important;
-}
-section[data-testid="stSidebar"] label {
-    font-size: 0.65rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    opacity: 0.4;
-}
-section[data-testid="stSidebar"] .stButton button {
-    background: rgba(255,255,255,0.06) !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-    color: rgba(255,255,255,0.7) !important;
-    border-radius: var(--radius-lg) !important;
-    font-size: 0.8rem !important;
-    width: 100%;
-    padding: 0.5rem !important;
-    transition: var(--transition) !important;
-}
-section[data-testid="stSidebar"] .stButton button:hover {
-    background: rgba(255,255,255,0.12) !important;
-    color: var(--white) !important;
-}
-
-/* ════════════════════════════════════════
-   MAIN LAYOUT
-════════════════════════════════════════ */
-.main-wrapper {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 2rem 2rem 6rem;
-}
-
-/* ── HERO ── */
-.hero {
-    background: linear-gradient(135deg, var(--forest) 0%, #1e5631 40%, #2d7a4f 100%);
-    border-radius: var(--radius-xl);
-    padding: 3rem 3rem 2.5rem;
-    margin-bottom: 2rem;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-}
-.hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(ellipse at 80% 20%, rgba(82,183,136,0.25) 0%, transparent 60%),
-        radial-gradient(ellipse at 20% 80%, rgba(233,196,106,0.15) 0%, transparent 50%);
-}
-.hero::after {
-    content: '🌴';
-    position: absolute;
-    font-size: 10rem;
-    right: 1.5rem;
-    bottom: -1.5rem;
-    opacity: 0.12;
-    line-height: 1;
-}
-.hero-inner { position: relative; z-index: 1; }
-.hero-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: rgba(82,183,136,0.2);
-    border: 1px solid rgba(82,183,136,0.35);
-    border-radius: var(--radius-pill);
-    padding: 0.3rem 0.9rem;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--seafoam);
-    margin-bottom: 1rem;
-}
-.hero-title {
-    font-family: 'Fraunces', serif;
-    font-size: clamp(2.5rem, 5vw, 3.8rem);
-    font-weight: 900;
-    color: var(--white);
-    margin: 0 0 0.4rem;
-    line-height: 1;
-    letter-spacing: -2px;
-}
-.hero-title span { color: var(--seafoam); }
-.hero-tagline {
-    font-size: 1rem;
-    color: rgba(255,255,255,0.65);
-    font-weight: 300;
-    margin-bottom: 1.5rem;
-}
-.hero-bisaya {
-    display: inline-block;
-    background: rgba(233,196,106,0.15);
-    border: 1px solid rgba(233,196,106,0.3);
-    border-radius: var(--radius-pill);
-    padding: 0.4rem 1.1rem;
-    font-size: 0.82rem;
-    color: var(--gold);
-    font-style: italic;
-}
-
-/* ── SUGGEST SECTION ── */
-.suggest-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: #9ab;
-    margin-bottom: 0.75rem;
-    display: block;
-}
-
-/* ── CHAT ── */
-.chat-container {
+.app-shell {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
+    height: 100vh;
+    max-width: 780px;
+    margin: 0 auto;
 }
-.msg-row-user {
+
+/* ── TOP NAV ── */
+.topnav {
     display: flex;
-    justify-content: flex-end;
-    animation: fadeSlideUp 0.3s ease;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    background: rgba(15,17,23,0.85);
+    position: sticky;
+    top: 0;
+    z-index: 50;
 }
-.bubble-user {
-    background: var(--forest);
-    color: var(--white);
-    border-radius: 20px 20px 4px 20px;
-    padding: 0.9rem 1.25rem;
-    max-width: 68%;
-    font-size: 0.95rem;
-    line-height: 1.55;
-    box-shadow: var(--shadow-md);
-}
-.msg-row-bot {
+.topnav-brand {
     display: flex;
-    justify-content: flex-start;
-    gap: 0.75rem;
-    align-items: flex-start;
-    animation: fadeSlideUp 0.3s ease;
+    align-items: center;
+    gap: 0.6rem;
 }
-.bot-avatar {
-    width: 38px; height: 38px;
-    background: linear-gradient(135deg, var(--seafoam), var(--jade));
-    border-radius: 50%;
+.topnav-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
+    box-shadow: 0 0 16px var(--green-glow);
+}
+.topnav-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--white);
+}
+.topnav-name span { color: var(--green); }
+.topnav-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid rgba(74,222,128,0.2);
+    border-radius: var(--pill);
+    padding: 0.25rem 0.75rem;
+}
+.online-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: blink 2s infinite;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}
+
+/* ── CHAT SCROLL AREA ── */
+.chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 1.5rem 0;
+    scroll-behavior: smooth;
+}
+.chat-area::-webkit-scrollbar { width: 4px; }
+.chat-area::-webkit-scrollbar-track { background: transparent; }
+.chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── WELCOME SCREEN ── */
+.welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    min-height: 55vh;
+}
+.welcome-glow {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #4ade80, #16a34a);
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 0 40px var(--green-glow), 0 0 80px rgba(74,222,128,0.1);
+}
+.welcome-title {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 0.5rem;
+    line-height: 1.1;
+}
+.welcome-title span { color: var(--green); }
+.welcome-sub {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 340px;
+    margin-bottom: 0.75rem;
+}
+.welcome-bisaya {
+    font-size: 0.78rem;
+    color: rgba(74,222,128,0.7);
+    font-style: italic;
+    border: 1px solid rgba(74,222,128,0.2);
+    background: var(--green-dim);
+    border-radius: var(--pill);
+    padding: 0.3rem 0.9rem;
+    margin-bottom: 2rem;
+}
+
+/* ── SUGGESTION CHIPS ── */
+.chips-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+    text-align: center;
+}
+.chips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 480px;
+}
+.chip-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--white);
+}
+.chip-btn:hover {
+    background: var(--surface2);
+    border-color: rgba(74,222,128,0.3);
+    transform: translateY(-1px);
+}
+.chip-icon { font-size: 1.1rem; margin-bottom: 0.3rem; display: block; }
+.chip-text { font-size: 0.8rem; font-weight: 500; color: var(--white); line-height: 1.3; }
+.chip-sub  { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; }
+
+/* ── MESSAGES ── */
+.msg-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* User */
+.msg-user-row {
+    display: flex;
+    justify-content: flex-end;
+    animation: msgIn 0.25s ease;
+}
+.msg-user-bubble {
+    background: var(--user-bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--white);
+    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+    padding: 0.85rem 1.1rem;
+    max-width: min(72%, 520px);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Bot */
+.msg-bot-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    animation: msgIn 0.25s ease;
+}
+.bot-avi {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #4ade80, #16a34a);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
     flex-shrink: 0;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 0 12px var(--green-glow);
     margin-top: 2px;
 }
-.bubble-bot {
-    background: var(--white);
-    border: 1.5px solid #e8e4dc;
-    color: var(--ink);
-    border-radius: 20px 20px 20px 4px;
-    padding: 1rem 1.25rem;
-    max-width: 75%;
-    font-size: 0.95rem;
-    line-height: 1.65;
-    box-shadow: var(--shadow-sm);
+.msg-bot-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--white);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    padding: 0.9rem 1.1rem;
+    max-width: min(78%, 560px);
+    font-size: 0.9rem;
+    line-height: 1.7;
 }
-.sources-row {
+
+/* Typing indicator */
+.typing-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    animation: msgIn 0.25s ease;
+    margin-bottom: 1rem;
+}
+.typing-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 60px;
+}
+.typing-dot {
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: typingPulse 1.4s infinite ease-in-out;
+}
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingPulse {
+    0%, 60%, 100% { opacity: 0.4; transform: scale(1); }
+    30%            { opacity: 1;   transform: scale(1.25); }
+}
+
+/* Sources */
+.sources-strip {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid #f0ece4;
-}
-.source-chip {
-    display: inline-flex;
-    align-items: center;
     gap: 0.3rem;
-    background: var(--mist);
-    color: var(--jade);
-    border-radius: var(--radius-pill);
-    padding: 0.2rem 0.65rem;
-    font-size: 0.7rem;
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--border);
+}
+.source-pill {
+    font-size: 0.67rem;
     font-weight: 600;
+    color: var(--green);
+    background: var(--green-dim);
+    border: 1px solid rgba(74,222,128,0.15);
+    border-radius: var(--pill);
+    padding: 0.18rem 0.6rem;
+    letter-spacing: 0.2px;
 }
 
-/* ── EMPTY STATE ── */
-.empty-state {
+/* ── INPUT AREA ── */
+.input-area {
+    padding: 1rem 1.5rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: rgba(15,17,23,0.95);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    bottom: 0;
+}
+.input-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.6rem 0.75rem;
+    transition: border-color 0.2s;
+}
+.input-wrap:focus-within {
+    border-color: rgba(74,222,128,0.4);
+    box-shadow: 0 0 0 3px rgba(74,222,128,0.08);
+}
+.input-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
     text-align: center;
-    padding: 3.5rem 2rem;
-    color: #b0bbb5;
+    margin-top: 0.6rem;
+    letter-spacing: 0.2px;
 }
-.empty-icon { font-size: 3rem; margin-bottom: 0.75rem; }
-.empty-title {
-    font-family: 'Fraunces', serif;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #8a9e94;
-    margin-bottom: 0.4rem;
-}
-.empty-sub { font-size: 0.88rem; line-height: 1.6; }
 
-/* ── SUGGESTION BUTTONS ── */
-.stButton button {
-    background: var(--white) !important;
-    border: 1.5px solid #e0dbd0 !important;
-    color: var(--ink) !important;
-    border-radius: var(--radius-pill) !important;
-    font-family: 'Cabinet Grotesk', sans-serif !important;
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-    padding: 0.45rem 1rem !important;
-    transition: var(--transition) !important;
-    box-shadow: var(--shadow-sm) !important;
+/* Streamlit chat input overrides */
+[data-testid="stChatInput"] {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
-.stButton button:hover {
-    background: var(--forest) !important;
-    border-color: var(--forest) !important;
+[data-testid="stChatInput"] > div {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 0.2rem 0.5rem !important;
+    transition: all 0.2s !important;
+}
+[data-testid="stChatInput"] > div:focus-within {
+    border-color: rgba(74,222,128,0.4) !important;
+    box-shadow: 0 0 0 3px rgba(74,222,128,0.08) !important;
+}
+[data-testid="stChatInput"] textarea {
+    background: transparent !important;
+    border: none !important;
     color: var(--white) !important;
-    box-shadow: var(--shadow-md) !important;
+    font-family: 'Sora', sans-serif !important;
+    font-size: 0.9rem !important;
+    resize: none !important;
+    outline: none !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: var(--muted) !important;
+}
+[data-testid="stChatInput"] button {
+    background: var(--green) !important;
+    border-radius: 8px !important;
+    border: none !important;
+    color: #0f1117 !important;
+}
+[data-testid="stChatInput"] button:hover {
+    background: #22c55e !important;
+}
+
+/* Suggestion buttons */
+.stButton > button {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--white) !important;
+    border-radius: var(--radius) !important;
+    font-family: 'Sora', sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    padding: 0.65rem 0.75rem !important;
+    text-align: left !important;
+    width: 100% !important;
+    transition: all 0.18s ease !important;
+    line-height: 1.4 !important;
+    white-space: normal !important;
+    height: auto !important;
+}
+.stButton > button:hover {
+    background: var(--surface2) !important;
+    border-color: rgba(74,222,128,0.3) !important;
     transform: translateY(-1px) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
 }
 
-/* ── DIVIDER ── */
-.divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #ddd8ce 20%, #ddd8ce 80%, transparent);
-    margin: 1.5rem 0;
+/* Clear button */
+.clear-btn > button {
+    background: transparent !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    color: var(--muted) !important;
+    font-size: 0.75rem !important;
+    padding: 0.35rem 0.75rem !important;
+    border-radius: var(--pill) !important;
+    width: auto !important;
+}
+.clear-btn > button:hover {
+    border-color: rgba(255,100,100,0.3) !important;
+    color: #f87171 !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
-/* ── STATUS ── */
-.status-badge { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; font-weight: 600; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--seafoam); box-shadow: 0 0 0 2px rgba(82,183,136,0.3); }
-
-/* ── ANIMATIONS ── */
-@keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(10px); }
+@keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── MOBILE ── */
+@media (max-width: 600px) {
+    .topnav { padding: 0.75rem 1rem; }
+    .chat-area { padding: 1rem 1rem 0; }
+    .input-area { padding: 0.75rem 1rem 1rem; }
+    .msg-user-bubble, .msg-bot-bubble { max-width: 85%; font-size: 0.85rem; }
+    .chips-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .welcome { padding: 2rem 1rem 1rem; min-height: 45vh; }
+    .welcome-title { font-size: 1.5rem; }
+    .welcome-glow { width: 58px; height: 58px; font-size: 1.6rem; }
 }
 </style>
 """, unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────
-# KNOWLEDGE BASE PARSER
+# KNOWLEDGE BASE
 # ─────────────────────────────────────────
 def parse_knowledge_base(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -439,25 +522,18 @@ def retrieve(query, kb, embedder, index, top_k=3):
             for i in indices[0]]
 
 
-def generate_response(query, retrieved_docs, client):
+def generate_response(query, retrieved_docs):
+    client = Groq(api_key=GROQ_API_KEY)
     SYSTEM_PROMPT = """You are Gala.AI 🌴 — a warm, knowledgeable AI travel guide for Cebu, Philippines.
-Tagline: "Your AI guide to the best of Cebu."
-
-Answer using ONLY the provided context. If insufficient, say so and suggest another Cebu topic.
-
-Style:
-- Conversational, like a friendly local Cebuano
-- Sprinkle Bisaya naturally (Dali!, Maayong biyahe!, Nindot kaayo!)
-- Concise but complete — use short paragraphs
-- End with one follow-up suggestion
-- No bullet-point walls — write naturally"""
+Answer using ONLY the provided context. If context is insufficient, say so and suggest another Cebu topic.
+Style: conversational like a friendly local Cebuano, sprinkle Bisaya naturally (Dali!, Maayong biyahe!, Nindot kaayo!), concise short paragraphs, end with one follow-up suggestion. No bullet walls."""
 
     context = "\n\n".join([
         f"[{doc['category']}] {doc['title']}:\n{doc['content']}"
         for doc in retrieved_docs
     ])
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
@@ -475,56 +551,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "pending" not in st.session_state:
     st.session_state.pending = None
-
-
-# ─────────────────────────────────────────
-# SIDEBAR
-# ─────────────────────────────────────────
-with st.sidebar:
-    st.markdown("""
-    <div class="sidebar-brand">
-        <div class="sidebar-logo">🌴</div>
-        <div class="sidebar-name">Gala<span>.AI</span></div>
-        <div class="sidebar-sub">Your AI guide to the best of Cebu</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
-    st.markdown('<span class="sidebar-label">🔑 Groq API Key</span>', unsafe_allow_html=True)
-    api_key = st.text_input(" ", type="password", placeholder="gsk_...", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="sidebar-section">
-        <span class="sidebar-label">📚 Knowledge Base</span>
-        <div>
-            <span class="sidebar-tag">📍 Tourist Spots</span>
-            <span class="sidebar-tag">🏛️ History & Culture</span>
-            <span class="sidebar-tag">🎉 Festivals</span>
-            <span class="sidebar-tag">💡 Travel Tips</span>
-            <span class="sidebar-tag">🌟 Hidden Gems</span>
-        </div>
-    </div>
-    <div class="sidebar-section">
-        <span class="sidebar-label">💬 Try asking</span>
-        <div class="sidebar-tip">"Where to go for only 2 days?"</div>
-        <div class="sidebar-tip">"Best time to visit Cebu?"</div>
-        <div class="sidebar-tip">"Tell me about Sinulog Festival"</div>
-        <div class="sidebar-tip">"Hidden gems tourists miss"</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("🗑️ Clear conversation"):
-        st.session_state.messages = []
-        st.rerun()
-
-    st.markdown("""
-    <div class="sidebar-footer">
-        Powered by Groq · LLaMA 3.3 · FAISS<br>
-        Sentence Transformers · Streamlit<br><br>
-        Wagtang kalaay — Gala na! 🌴
-    </div>
-    """, unsafe_allow_html=True)
+if "is_typing" not in st.session_state:
+    st.session_state.is_typing = False
 
 
 # ─────────────────────────────────────────
@@ -534,109 +562,177 @@ try:
     kb, embedder, faiss_index = load_rag_system()
     rag_ready = True
 except Exception as e:
-    st.error(f"⚠️ Could not load **cebu_tourism.txt** — make sure it's in the same folder as app.py.\n\n`{e}`")
     rag_ready = False
+    rag_error = str(e)
 
 
 # ─────────────────────────────────────────
-# MAIN
+# TOP NAV
 # ─────────────────────────────────────────
-st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
+nav_col1, nav_col2, nav_col3 = st.columns([1, 4, 1])
 
-# HERO
-status_html = '<span class="status-dot"></span> Ready' if rag_ready else '<span style="background:#e76f51" class="status-dot"></span> Error'
-st.markdown(f"""
-<div class="hero">
-    <div class="hero-inner">
-        <div class="hero-eyebrow">
-            <span class="status-badge">{status_html}</span>
-            &nbsp;·&nbsp; Cebu Tourism AI
+with nav_col1:
+    st.markdown("""
+    <div style="padding: 0.8rem 0 0.8rem 1.5rem;">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div style="width:34px;height:34px;background:linear-gradient(135deg,#4ade80,#22c55e);
+                        border-radius:10px;display:flex;align-items:center;justify-content:center;
+                        font-size:1.1rem;box-shadow:0 0 16px rgba(74,222,128,0.25);">🌴</div>
+            <span style="font-size:1.1rem;font-weight:700;letter-spacing:-0.5px;">Gala<span style="color:#4ade80;">.AI</span></span>
         </div>
-        <div class="hero-title">Gala<span>.AI</span></div>
-        <div class="hero-tagline">Your AI guide to the best of Cebu, Philippines 🇵🇭</div>
-        <div class="hero-bisaya">Wagtang kalaay, decide your destination through Gala.AI!</div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# SUGGESTED QUESTIONS
-if not st.session_state.messages and rag_ready:
-    st.markdown('<span class="suggest-label">✦ Start with a question</span>', unsafe_allow_html=True)
+with nav_col2:
+    st.markdown("""
+    <div style="display:flex;justify-content:center;align-items:center;padding-top:0.9rem;">
+        <div style="display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;font-weight:500;
+                    color:#4ade80;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);
+                    border-radius:999px;padding:0.28rem 0.8rem;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#4ade80;
+                        box-shadow:0 0 6px #4ade80;animation:blink 2s infinite;"></div>
+            Cebu Tourism AI · Online
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with nav_col3:
+    st.markdown('<div style="display:flex;justify-content:flex-end;padding-top:0.6rem;padding-right:1.5rem;">', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
+        if st.button("✕ Clear", key="clear_nav"):
+            st.session_state.messages = []
+            st.session_state.is_typing = False
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0;">', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────
+# CHAT AREA
+# ─────────────────────────────────────────
+if not rag_ready:
+    st.error(f"⚠️ Could not load **cebu_tourism.txt** — make sure it's in the same folder as app.py.")
+    st.stop()
+
+# ── WELCOME / EMPTY STATE ──
+if not st.session_state.messages:
+    st.markdown("""
+    <div class="welcome">
+        <div class="welcome-glow">🌴</div>
+        <div class="welcome-title">Hello! I'm Gala<span>.AI</span></div>
+        <div class="welcome-sub">Your personal AI travel guide to the best of Cebu, Philippines. Ask me anything — beaches, history, food, festivals, hidden gems.</div>
+        <div class="welcome-bisaya">Wagtang kalaay, decide your destination through Gala.AI!</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<p class="chips-label">✦ Suggested questions</p>', unsafe_allow_html=True)
+
     suggestions = [
-        ("🐋", "Whale sharks in Oslob"),
-        ("🎊", "Sinulog Festival"),
-        ("💰", "Budget travel tips"),
-        ("🏝️", "Hidden gems in Cebu"),
-        ("⚔️", "Lapu-Lapu history"),
-        ("🍖", "What to eat in Cebu"),
+        ("🐋", "Whale sharks in Oslob", "Watch butanding up close"),
+        ("🎊", "What is Sinulog Festival?", "Cebu's biggest celebration"),
+        ("💰", "Budget travel tips", "Explore Cebu for less"),
+        ("🏝️", "Hidden gems in Cebu", "Off-the-beaten-path spots"),
+        ("⚔️", "Who was Lapu-Lapu?", "Cebu's greatest hero"),
+        ("🍖", "What to eat in Cebu?", "Food you can't miss"),
     ]
-    cols = st.columns(len(suggestions))
-    for col, (icon, label) in zip(cols, suggestions):
+
+    col1, col2 = st.columns(2)
+    for i, (icon, label, sub) in enumerate(suggestions):
+        col = col1 if i % 2 == 0 else col2
         with col:
-            if st.button(f"{icon} {label}", key=f"s_{label}"):
+            if st.button(f"{icon}  {label}\n{sub}", key=f"chip_{i}"):
                 st.session_state.pending = label
                 st.rerun()
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-# CHAT MESSAGES
-if st.session_state.messages:
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# ── CHAT MESSAGES ──
+else:
+    st.markdown('<div style="padding: 1.5rem 1.5rem 0; max-width: 780px; margin: 0 auto;">', unsafe_allow_html=True)
+
     for msg in st.session_state.messages:
         if msg["role"] == "user":
             st.markdown(f"""
-            <div class="msg-row-user">
-                <div class="bubble-user">{msg["content"]}</div>
+            <div class="msg-user-row">
+                <div class="msg-user-bubble">{msg["content"]}</div>
             </div>""", unsafe_allow_html=True)
         else:
-            sources_html = "".join([
-                f'<span class="source-chip">📍 {s}</span>'
-                for s in msg.get("sources", [])
-            ])
-            content = msg["content"].replace("\n", "<br>")
+            sources_html = ""
+            if msg.get("sources"):
+                pills = "".join([f'<span class="source-pill">📍 {s}</span>' for s in msg["sources"]])
+                sources_html = f'<div class="sources-strip">{pills}</div>'
+
+            content = msg["content"].replace("\n\n", "<br><br>").replace("\n", "<br>")
             st.markdown(f"""
-            <div class="msg-row-bot">
-                <div class="bot-avatar">🌴</div>
-                <div class="bubble-bot">
+            <div class="msg-bot-row">
+                <div class="bot-avi">🌴</div>
+                <div class="msg-bot-bubble">
                     {content}
-                    {f'<div class="sources-row">{sources_html}</div>' if sources_html else ''}
+                    {sources_html}
                 </div>
             </div>""", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-else:
-    if rag_ready:
+
+    # Typing indicator
+    if st.session_state.is_typing:
         st.markdown("""
-        <div class="empty-state">
-            <div class="empty-icon">🗺️</div>
-            <div class="empty-title">Where do you want to go?</div>
-            <div class="empty-sub">Ask me about beaches, history, food, festivals,<br>hidden gems — anything about Cebu.</div>
+        <div class="typing-row" style="padding: 0 0 1rem;">
+            <div class="bot-avi">🌴</div>
+            <div class="typing-bubble">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
         </div>""", unsafe_allow_html=True)
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Bottom padding so input doesn't cover messages
+st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────
+# CHAT INPUT (bottom, sticky)
+# ─────────────────────────────────────────
+st.markdown('<div style="max-width:780px;margin:0 auto;">', unsafe_allow_html=True)
+user_input = st.chat_input("Ask anything about Cebu, Philippines...")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ─────────────────────────────────────────
-# CHAT INPUT
-# ─────────────────────────────────────────
-user_input = st.chat_input("Ask anything about Cebu...")
-
+# Handle suggestion click
 if st.session_state.pending:
     user_input = st.session_state.pending
     st.session_state.pending = None
 
-if user_input and rag_ready:
-    if not api_key:
-        st.warning("⚠️ Please enter your Groq API key in the sidebar first!")
-    else:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.spinner("Gala.AI is thinking..."):
-            try:
-                client = Groq(api_key=api_key)
-                retrieved = retrieve(user_input, kb, embedder, faiss_index, top_k=3)
-                response = generate_response(user_input, retrieved, client)
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": response,
-                    "sources": [d["title"] for d in retrieved]
-                })
-            except Exception as e:
-                st.error(f"❌ {e}")
+
+# ─────────────────────────────────────────
+# PROCESS QUERY
+# ─────────────────────────────────────────
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.is_typing = True
+    st.rerun()
+
+# If typing flag is set, generate the response
+if st.session_state.is_typing:
+    try:
+        last_user = next(
+            (m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"),
+            None
+        )
+        if last_user:
+            retrieved = retrieve(last_user, kb, embedder, faiss_index, top_k=3)
+            response  = generate_response(last_user, retrieved)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": response,
+                "sources": [d["title"] for d in retrieved]
+            })
+    except Exception as e:
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": f"Sorry, something went wrong: {e}",
+            "sources": []
+        })
+    finally:
+        st.session_state.is_typing = False
         st.rerun()
