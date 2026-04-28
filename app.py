@@ -3,321 +3,464 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 from groq import Groq
-import os
 
 # ─────────────────────────────────────────
 # PAGE CONFIG
 # ─────────────────────────────────────────
 st.set_page_config(
-    page_title="Gala.AI — Your Cebu Travel Guide",
+    page_title="Gala.AI — Cebu Travel Guide",
     page_icon="🌴",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ─────────────────────────────────────────
-# CUSTOM CSS
+# DESIGN SYSTEM & CSS
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,700;0,900;1,300;1,700&family=Cabinet+Grotesk:wght@300;400;500;700&display=swap');
 
+/* ── DESIGN TOKENS ── */
 :root {
-    --ocean: #0a4f6e;
-    --sand: #f5e6c8;
-    --coral: #e8643a;
-    --leaf: #2d7a4f;
-    --sky: #d4edf7;
-    --dark: #0d1f2d;
-    --white: #fffef9;
+    --ink:        #0e1a12;
+    --forest:     #1b4332;
+    --jade:       #2d6a4f;
+    --seafoam:    #52b788;
+    --mist:       #d8f3dc;
+    --sand:       #fdf8f0;
+    --gold:       #e9c46a;
+    --coral:      #e76f51;
+    --white:      #ffffff;
+    --radius-lg:  16px;
+    --radius-xl:  24px;
+    --radius-pill:50px;
+    --shadow-sm:  0 2px 8px rgba(14,26,18,0.08);
+    --shadow-md:  0 8px 32px rgba(14,26,18,0.12);
+    --shadow-lg:  0 20px 60px rgba(14,26,18,0.18);
+    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ── RESET & BASE ── */
 html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-    background-color: var(--white);
+    font-family: 'Cabinet Grotesk', sans-serif !important;
+    background: var(--sand) !important;
+    color: var(--ink) !important;
 }
 
-/* Hide default streamlit elements */
+/* ── HIDE STREAMLIT CHROME ── */
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 1rem; padding-bottom: 2rem; }
+.block-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+}
+section[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0 !important;
+}
 
-/* ── SIDEBAR ── */
+/* ════════════════════════════════════════
+   SIDEBAR
+════════════════════════════════════════ */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(160deg, var(--ocean) 0%, var(--dark) 100%);
-    border-right: none;
+    background: var(--forest) !important;
+    border-right: none !important;
+    box-shadow: 4px 0 24px rgba(14,26,18,0.2) !important;
 }
 section[data-testid="stSidebar"] * { color: var(--white) !important; }
-section[data-testid="stSidebar"] .stMarkdown p { opacity: 0.85; font-size: 0.85rem; line-height: 1.6; }
 
-/* ── HERO HEADER ── */
-.hero {
-    background: linear-gradient(135deg, var(--ocean) 0%, #1a7fa0 50%, var(--leaf) 100%);
-    border-radius: 20px;
-    padding: 2.5rem 2.5rem 2rem;
+.sidebar-brand {
+    padding: 2rem 1.5rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
     margin-bottom: 1.5rem;
+}
+.sidebar-logo { font-size: 2.8rem; line-height: 1; margin-bottom: 0.5rem; }
+.sidebar-name {
+    font-family: 'Fraunces', serif !important;
+    font-size: 1.8rem !important;
+    font-weight: 900 !important;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: var(--white) !important;
+}
+.sidebar-name span { color: var(--seafoam) !important; }
+.sidebar-sub {
+    font-size: 0.75rem !important;
+    opacity: 0.55;
+    margin-top: 0.3rem;
+    font-weight: 300 !important;
+}
+.sidebar-section { padding: 0 1.5rem; margin-bottom: 1.5rem; }
+.sidebar-label {
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0.4;
+    margin-bottom: 0.75rem;
+    display: block;
+}
+.sidebar-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius-pill);
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem !important;
+    margin: 0.2rem 0.2rem 0.2rem 0;
+    color: rgba(255,255,255,0.85) !important;
+}
+.sidebar-tip {
+    font-size: 0.8rem !important;
+    opacity: 0.6;
+    line-height: 1.6;
+    font-style: italic;
+    border-left: 2px solid var(--seafoam);
+    padding-left: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+.sidebar-footer {
+    padding: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.7rem !important;
+    opacity: 0.35;
+    text-align: center;
+    line-height: 1.8;
+}
+
+section[data-testid="stSidebar"] .stTextInput input {
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    border-radius: var(--radius-lg) !important;
+    color: var(--white) !important;
+    font-size: 0.85rem !important;
+    padding: 0.6rem 1rem !important;
+}
+section[data-testid="stSidebar"] .stTextInput input::placeholder {
+    color: rgba(255,255,255,0.35) !important;
+}
+section[data-testid="stSidebar"] .stTextInput input:focus {
+    border-color: var(--seafoam) !important;
+    box-shadow: 0 0 0 3px rgba(82,183,136,0.2) !important;
+    outline: none !important;
+}
+section[data-testid="stSidebar"] label {
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0.4;
+}
+section[data-testid="stSidebar"] .stButton button {
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    color: rgba(255,255,255,0.7) !important;
+    border-radius: var(--radius-lg) !important;
+    font-size: 0.8rem !important;
+    width: 100%;
+    padding: 0.5rem !important;
+    transition: var(--transition) !important;
+}
+section[data-testid="stSidebar"] .stButton button:hover {
+    background: rgba(255,255,255,0.12) !important;
+    color: var(--white) !important;
+}
+
+/* ════════════════════════════════════════
+   MAIN LAYOUT
+════════════════════════════════════════ */
+.main-wrapper {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 2rem 6rem;
+}
+
+/* ── HERO ── */
+.hero {
+    background: linear-gradient(135deg, var(--forest) 0%, #1e5631 40%, #2d7a4f 100%);
+    border-radius: var(--radius-xl);
+    padding: 3rem 3rem 2.5rem;
+    margin-bottom: 2rem;
     position: relative;
     overflow: hidden;
+    box-shadow: var(--shadow-lg);
 }
 .hero::before {
-    content: "🌊";
+    content: '';
     position: absolute;
-    font-size: 8rem;
-    opacity: 0.08;
-    right: -1rem;
-    top: -1rem;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 80% 20%, rgba(82,183,136,0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 80%, rgba(233,196,106,0.15) 0%, transparent 50%);
+}
+.hero::after {
+    content: '🌴';
+    position: absolute;
+    font-size: 10rem;
+    right: 1.5rem;
+    bottom: -1.5rem;
+    opacity: 0.12;
+    line-height: 1;
+}
+.hero-inner { position: relative; z-index: 1; }
+.hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(82,183,136,0.2);
+    border: 1px solid rgba(82,183,136,0.35);
+    border-radius: var(--radius-pill);
+    padding: 0.3rem 0.9rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--seafoam);
+    margin-bottom: 1rem;
 }
 .hero-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 3rem;
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.5rem, 5vw, 3.8rem);
     font-weight: 900;
     color: var(--white);
-    margin: 0;
-    line-height: 1.1;
-    letter-spacing: -1px;
+    margin: 0 0 0.4rem;
+    line-height: 1;
+    letter-spacing: -2px;
 }
-.hero-title span { color: #7dd4f0; }
+.hero-title span { color: var(--seafoam); }
 .hero-tagline {
-    color: rgba(255,255,255,0.85);
     font-size: 1rem;
-    margin-top: 0.5rem;
+    color: rgba(255,255,255,0.65);
     font-weight: 300;
-    letter-spacing: 0.5px;
+    margin-bottom: 1.5rem;
 }
-.hero-informal {
+.hero-bisaya {
     display: inline-block;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 50px;
-    padding: 0.3rem 1rem;
-    font-size: 0.8rem;
-    color: var(--sand);
-    margin-top: 0.8rem;
+    background: rgba(233,196,106,0.15);
+    border: 1px solid rgba(233,196,106,0.3);
+    border-radius: var(--radius-pill);
+    padding: 0.4rem 1.1rem;
+    font-size: 0.82rem;
+    color: var(--gold);
     font-style: italic;
 }
 
-/* ── CHAT MESSAGES ── */
-.chat-wrapper { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem; }
+/* ── SUGGEST SECTION ── */
+.suggest-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #9ab;
+    margin-bottom: 0.75rem;
+    display: block;
+}
 
-.msg-user {
+/* ── CHAT ── */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+.msg-row-user {
     display: flex;
     justify-content: flex-end;
+    animation: fadeSlideUp 0.3s ease;
 }
-.msg-user .bubble {
-    background: var(--ocean);
+.bubble-user {
+    background: var(--forest);
     color: var(--white);
-    border-radius: 18px 18px 4px 18px;
-    padding: 0.8rem 1.2rem;
-    max-width: 70%;
+    border-radius: 20px 20px 4px 20px;
+    padding: 0.9rem 1.25rem;
+    max-width: 68%;
     font-size: 0.95rem;
-    line-height: 1.5;
-    box-shadow: 0 2px 8px rgba(10,79,110,0.2);
+    line-height: 1.55;
+    box-shadow: var(--shadow-md);
 }
-
-.msg-bot {
+.msg-row-bot {
     display: flex;
     justify-content: flex-start;
-    gap: 0.6rem;
+    gap: 0.75rem;
     align-items: flex-start;
+    animation: fadeSlideUp 0.3s ease;
 }
 .bot-avatar {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--coral), #f0943a);
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--seafoam), var(--jade));
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
     flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
     margin-top: 2px;
 }
-.msg-bot .bubble {
+.bubble-bot {
     background: var(--white);
-    border: 1.5px solid #e8e0d0;
-    color: var(--dark);
-    border-radius: 18px 18px 18px 4px;
-    padding: 0.9rem 1.2rem;
+    border: 1.5px solid #e8e4dc;
+    color: var(--ink);
+    border-radius: 20px 20px 20px 4px;
+    padding: 1rem 1.25rem;
     max-width: 75%;
     font-size: 0.95rem;
-    line-height: 1.6;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    line-height: 1.65;
+    box-shadow: var(--shadow-sm);
 }
-
-.sources-pill {
-    display: inline-block;
-    background: var(--sky);
-    color: var(--ocean);
-    border-radius: 50px;
-    padding: 0.15rem 0.7rem;
-    font-size: 0.72rem;
-    font-weight: 500;
-    margin-right: 0.3rem;
-    margin-top: 0.5rem;
-    border: 1px solid #b8dded;
+.sources-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f0ece4;
 }
-
-/* ── SUGGESTED QUESTIONS ── */
-.suggest-label {
-    font-size: 0.8rem;
-    color: #888;
-    margin-bottom: 0.4rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* ── INPUT AREA ── */
-.stTextInput input {
-    border-radius: 50px !important;
-    border: 2px solid #ddd !important;
-    padding: 0.7rem 1.2rem !important;
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: 0.95rem !important;
-    transition: border-color 0.2s !important;
-}
-.stTextInput input:focus {
-    border-color: var(--ocean) !important;
-    box-shadow: 0 0 0 3px rgba(10,79,110,0.1) !important;
-}
-
-/* ── BUTTONS ── */
-.stButton button {
-    border-radius: 50px !important;
-    font-family: 'DM Sans', sans-serif !important;
-    font-weight: 500 !important;
-    border: 2px solid var(--ocean) !important;
-    color: var(--ocean) !important;
-    background: transparent !important;
-    transition: all 0.2s !important;
-    font-size: 0.82rem !important;
-    padding: 0.3rem 0.9rem !important;
-}
-.stButton button:hover {
-    background: var(--ocean) !important;
-    color: var(--white) !important;
-}
-
-/* ── DIVIDER ── */
-.custom-divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #ddd, transparent);
-    margin: 1rem 0;
+.source-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--mist);
+    color: var(--jade);
+    border-radius: var(--radius-pill);
+    padding: 0.2rem 0.65rem;
+    font-size: 0.7rem;
+    font-weight: 600;
 }
 
 /* ── EMPTY STATE ── */
 .empty-state {
     text-align: center;
-    padding: 3rem 1rem;
-    color: #aaa;
+    padding: 3.5rem 2rem;
+    color: #b0bbb5;
 }
-.empty-state .big-emoji { font-size: 3.5rem; margin-bottom: 0.5rem; }
-.empty-state p { font-size: 0.95rem; margin: 0; }
+.empty-icon { font-size: 3rem; margin-bottom: 0.75rem; }
+.empty-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #8a9e94;
+    margin-bottom: 0.4rem;
+}
+.empty-sub { font-size: 0.88rem; line-height: 1.6; }
+
+/* ── SUGGESTION BUTTONS ── */
+.stButton button {
+    background: var(--white) !important;
+    border: 1.5px solid #e0dbd0 !important;
+    color: var(--ink) !important;
+    border-radius: var(--radius-pill) !important;
+    font-family: 'Cabinet Grotesk', sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    padding: 0.45rem 1rem !important;
+    transition: var(--transition) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+.stButton button:hover {
+    background: var(--forest) !important;
+    border-color: var(--forest) !important;
+    color: var(--white) !important;
+    box-shadow: var(--shadow-md) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── DIVIDER ── */
+.divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #ddd8ce 20%, #ddd8ce 80%, transparent);
+    margin: 1.5rem 0;
+}
+
+/* ── STATUS ── */
+.status-badge { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; font-weight: 600; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--seafoam); box-shadow: 0 0 0 2px rgba(82,183,136,0.3); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 </style>
 """, unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────
-# LOAD KNOWLEDGE BASE FROM TXT
+# KNOWLEDGE BASE PARSER
 # ─────────────────────────────────────────
 def parse_knowledge_base(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
-
     entries = []
     blocks = content.split("=" * 50)
-
     i = 0
     while i < len(blocks):
         block = blocks[i].strip()
         if block.startswith("CATEGORY:"):
             lines = block.split("\n")
-            category = ""
-            title = ""
+            category, title = "", ""
             for line in lines:
                 if line.startswith("CATEGORY:"):
                     category = line.replace("CATEGORY:", "").strip()
                 elif line.startswith("TITLE:"):
                     title = line.replace("TITLE:", "").strip()
-
             if i + 1 < len(blocks):
                 content_block = blocks[i + 1].strip()
                 if category and title and content_block:
-                    entries.append({
-                        "category": category,
-                        "title": title,
-                        "content": content_block
-                    })
+                    entries.append({"category": category, "title": title, "content": content_block})
                 i += 2
             else:
                 i += 1
         else:
             i += 1
-
     return entries
 
 
 # ─────────────────────────────────────────
-# RAG SETUP (cached so it only runs once)
+# RAG SYSTEM
 # ─────────────────────────────────────────
 @st.cache_resource
 def load_rag_system():
     kb = parse_knowledge_base("cebu_tourism.txt")
     embedder = SentenceTransformer('all-MiniLM-L6-v2')
-    documents = [
-        f"[{item['category']}] {item['title']}: {item['content']}"
-        for item in kb
-    ]
-    embeddings = embedder.encode(documents, convert_to_numpy=True)
-    dimension = embeddings.shape[1]
-    idx = faiss.IndexFlatL2(dimension)
+    docs = [f"[{item['category']}] {item['title']}: {item['content']}" for item in kb]
+    embeddings = embedder.encode(docs, convert_to_numpy=True)
+    dim = embeddings.shape[1]
+    idx = faiss.IndexFlatL2(dim)
     idx.add(embeddings)
     return kb, embedder, idx
 
 
 def retrieve(query, kb, embedder, index, top_k=3):
-    query_embedding = embedder.encode([query], convert_to_numpy=True)
-    distances, indices = index.search(query_embedding, top_k)
-    results = []
-    for i, idx in enumerate(indices[0]):
-        results.append({
-            "rank": i + 1,
-            "title": kb[idx]['title'],
-            "category": kb[idx]['category'],
-            "content": kb[idx]['content']
-        })
-    return results
+    qe = embedder.encode([query], convert_to_numpy=True)
+    _, indices = index.search(qe, top_k)
+    return [{"title": kb[i]['title'], "category": kb[i]['category'], "content": kb[i]['content']}
+            for i in indices[0]]
 
 
 def generate_response(query, retrieved_docs, client):
-    SYSTEM_PROMPT = """
-You are Gala.AI 🌴 — a friendly, knowledgeable, and enthusiastic AI travel guide for Cebu, Philippines.
-Your tagline is: "Your AI guide to the best of Cebu."
+    SYSTEM_PROMPT = """You are Gala.AI 🌴 — a warm, knowledgeable AI travel guide for Cebu, Philippines.
+Tagline: "Your AI guide to the best of Cebu."
 
-You answer questions about Cebu tourism using ONLY the context provided to you.
-If the context does not contain enough information, say so honestly and suggest the user ask something else about Cebu.
+Answer using ONLY the provided context. If insufficient, say so and suggest another Cebu topic.
 
-Guidelines:
-- Be warm, friendly, and conversational — like a local Cebuano friend giving advice
-- Occasionally use Bisaya words naturally (e.g., "Dali, let's explore!", "Maayong biyahe!")
-- Keep answers helpful and concise but complete
-- Use emojis sparingly to make responses feel lively
-- Always end with a follow-up suggestion or question to keep the conversation going
-"""
+Style:
+- Conversational, like a friendly local Cebuano
+- Sprinkle Bisaya naturally (Dali!, Maayong biyahe!, Nindot kaayo!)
+- Concise but complete — use short paragraphs
+- End with one follow-up suggestion
+- No bullet-point walls — write naturally"""
+
     context = "\n\n".join([
-        f"[Source {i+1}: {doc['title']}]\n{doc['content']}"
-        for i, doc in enumerate(retrieved_docs)
+        f"[{doc['category']}] {doc['title']}:\n{doc['content']}"
+        for doc in retrieved_docs
     ])
-    user_message = f"""Based on the following information about Cebu:
-
-{context}
-
-Answer this question: {query}"""
-
     response = client.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_message}
+            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
         ],
         temperature=0.7,
         max_tokens=600
@@ -326,69 +469,63 @@ Answer this question: {query}"""
 
 
 # ─────────────────────────────────────────
+# SESSION STATE
+# ─────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "pending" not in st.session_state:
+    st.session_state.pending = None
+
+
+# ─────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style='text-align:center; padding: 1rem 0 1.5rem;'>
-        <div style='font-size:3rem;'>🌴</div>
-        <div style='font-family: Playfair Display, serif; font-size:1.6rem; font-weight:900; letter-spacing:-0.5px;'>Gala.AI</div>
-        <div style='font-size:0.78rem; opacity:0.7; margin-top:0.2rem;'>Your AI guide to the best of Cebu</div>
+    <div class="sidebar-brand">
+        <div class="sidebar-logo">🌴</div>
+        <div class="sidebar-name">Gala<span>.AI</span></div>
+        <div class="sidebar-sub">Your AI guide to the best of Cebu</div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### 🔑 API Key")
-    api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
+    st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+    st.markdown('<span class="sidebar-label">🔑 Groq API Key</span>', unsafe_allow_html=True)
+    api_key = st.text_input(" ", type="password", placeholder="gsk_...", label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### 📂 What I Know")
     st.markdown("""
-    - 📍 Tourist Spots & Landmarks
-    - 🏛️ History & Culture  
-    - 🎉 Festivals & Events
-    - 💡 Tips & Travel Advice
-    - 🌟 Popular + Hidden Gems
-    """)
+    <div class="sidebar-section">
+        <span class="sidebar-label">📚 Knowledge Base</span>
+        <div>
+            <span class="sidebar-tag">📍 Tourist Spots</span>
+            <span class="sidebar-tag">🏛️ History & Culture</span>
+            <span class="sidebar-tag">🎉 Festivals</span>
+            <span class="sidebar-tag">💡 Travel Tips</span>
+            <span class="sidebar-tag">🌟 Hidden Gems</span>
+        </div>
+    </div>
+    <div class="sidebar-section">
+        <span class="sidebar-label">💬 Try asking</span>
+        <div class="sidebar-tip">"Where to go for only 2 days?"</div>
+        <div class="sidebar-tip">"Best time to visit Cebu?"</div>
+        <div class="sidebar-tip">"Tell me about Sinulog Festival"</div>
+        <div class="sidebar-tip">"Hidden gems tourists miss"</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("### 💡 Try asking...")
-    st.markdown("""
-    *"What are hidden gems in Cebu?"*  
-    *"Tell me about Sinulog Festival"*  
-    *"I'm on a budget, any tips?"*  
-    *"History of Lapu-Lapu"*  
-    *"Best beaches in Cebu"*  
-    """)
-
-    st.markdown("---")
-    if st.button("🗑️ Clear Chat"):
+    if st.button("🗑️ Clear conversation"):
         st.session_state.messages = []
         st.rerun()
 
     st.markdown("""
-    <div style='text-align:center; font-size:0.72rem; opacity:0.5; margin-top:1rem;'>
-        Powered by Groq + LLaMA 3<br>Built with ❤️ for Cebu
+    <div class="sidebar-footer">
+        Powered by Groq · LLaMA 3.3 · FAISS<br>
+        Sentence Transformers · Streamlit<br><br>
+        Wagtang kalaay — Gala na! 🌴
     </div>
     """, unsafe_allow_html=True)
 
-
-# ─────────────────────────────────────────
-# MAIN CONTENT
-# ─────────────────────────────────────────
-st.markdown("""
-<div class="hero">
-    <div class="hero-title">Gala<span>.AI</span></div>
-    <div class="hero-tagline">Your AI guide to the best of Cebu, Philippines 🇵🇭</div>
-    <div class="hero-informal">Wagtang kalaay, decide your destination through Gala.AI!</div>
-</div>
-""", unsafe_allow_html=True)
-
-# ─────────────────────────────────────────
-# INIT SESSION STATE
-# ─────────────────────────────────────────
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
 # ─────────────────────────────────────────
 # LOAD RAG
@@ -397,101 +534,109 @@ try:
     kb, embedder, faiss_index = load_rag_system()
     rag_ready = True
 except Exception as e:
-    st.error(f"⚠️ Could not load cebu_tourism.txt — make sure it's in the same folder as app.py. Error: {e}")
+    st.error(f"⚠️ Could not load **cebu_tourism.txt** — make sure it's in the same folder as app.py.\n\n`{e}`")
     rag_ready = False
 
+
 # ─────────────────────────────────────────
-# SUGGESTED QUESTIONS (only when chat is empty)
+# MAIN
 # ─────────────────────────────────────────
+st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
+
+# HERO
+status_html = '<span class="status-dot"></span> Ready' if rag_ready else '<span style="background:#e76f51" class="status-dot"></span> Error'
+st.markdown(f"""
+<div class="hero">
+    <div class="hero-inner">
+        <div class="hero-eyebrow">
+            <span class="status-badge">{status_html}</span>
+            &nbsp;·&nbsp; Cebu Tourism AI
+        </div>
+        <div class="hero-title">Gala<span>.AI</span></div>
+        <div class="hero-tagline">Your AI guide to the best of Cebu, Philippines 🇵🇭</div>
+        <div class="hero-bisaya">Wagtang kalaay, decide your destination through Gala.AI!</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# SUGGESTED QUESTIONS
 if not st.session_state.messages and rag_ready:
-    st.markdown('<div class="suggest-label">✨ Suggested questions</div>', unsafe_allow_html=True)
+    st.markdown('<span class="suggest-label">✦ Start with a question</span>', unsafe_allow_html=True)
     suggestions = [
-        "🐋 Whale shark watching in Oslob",
-        "🎊 Tell me about Sinulog Festival",
-        "💰 Budget travel tips for Cebu",
-        "🏝️ Hidden gems in Cebu",
-        "⚔️ History of Lapu-Lapu",
+        ("🐋", "Whale sharks in Oslob"),
+        ("🎊", "Sinulog Festival"),
+        ("💰", "Budget travel tips"),
+        ("🏝️", "Hidden gems in Cebu"),
+        ("⚔️", "Lapu-Lapu history"),
+        ("🍖", "What to eat in Cebu"),
     ]
     cols = st.columns(len(suggestions))
-    for col, suggestion in zip(cols, suggestions):
+    for col, (icon, label) in zip(cols, suggestions):
         with col:
-            if st.button(suggestion, key=f"suggest_{suggestion}"):
-                st.session_state.pending_query = suggestion.split(" ", 1)[1]
+            if st.button(f"{icon} {label}", key=f"s_{label}"):
+                st.session_state.pending = label
                 st.rerun()
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-
-# ─────────────────────────────────────────
-# DISPLAY CHAT HISTORY
-# ─────────────────────────────────────────
+# CHAT MESSAGES
 if st.session_state.messages:
-    st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     for msg in st.session_state.messages:
         if msg["role"] == "user":
             st.markdown(f"""
-            <div class="msg-user">
-                <div class="bubble">{msg["content"]}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            <div class="msg-row-user">
+                <div class="bubble-user">{msg["content"]}</div>
+            </div>""", unsafe_allow_html=True)
         else:
             sources_html = "".join([
-                f'<span class="sources-pill">📍 {s}</span>'
+                f'<span class="source-chip">📍 {s}</span>'
                 for s in msg.get("sources", [])
             ])
+            content = msg["content"].replace("\n", "<br>")
             st.markdown(f"""
-            <div class="msg-bot">
+            <div class="msg-row-bot">
                 <div class="bot-avatar">🌴</div>
-                <div class="bubble">
-                    {msg["content"]}
-                    <div style="margin-top:0.5rem;">{sources_html}</div>
+                <div class="bubble-bot">
+                    {content}
+                    {f'<div class="sources-row">{sources_html}</div>' if sources_html else ''}
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 else:
     if rag_ready:
         st.markdown("""
         <div class="empty-state">
-            <div class="big-emoji">🌴</div>
-            <p>Ask me anything about Cebu!<br>Beaches, history, festivals, food, hidden gems — I've got you.</p>
-        </div>
-        """, unsafe_allow_html=True)
+            <div class="empty-icon">🗺️</div>
+            <div class="empty-title">Where do you want to go?</div>
+            <div class="empty-sub">Ask me about beaches, history, food, festivals,<br>hidden gems — anything about Cebu.</div>
+        </div>""", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────
 # CHAT INPUT
 # ─────────────────────────────────────────
-st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+user_input = st.chat_input("Ask anything about Cebu...")
 
-user_input = st.chat_input("Ask anything about Cebu... (e.g. 'Where should I go for 2 days?')")
+if st.session_state.pending:
+    user_input = st.session_state.pending
+    st.session_state.pending = None
 
-# Handle suggested question clicks
-if "pending_query" in st.session_state:
-    user_input = st.session_state.pop("pending_query")
-
-# ─────────────────────────────────────────
-# PROCESS QUERY
-# ─────────────────────────────────────────
 if user_input and rag_ready:
     if not api_key:
         st.warning("⚠️ Please enter your Groq API key in the sidebar first!")
     else:
-        # Add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
-
-        # Retrieve + Generate
-        with st.spinner("🌴 Gala.AI is thinking..."):
+        with st.spinner("Gala.AI is thinking..."):
             try:
                 client = Groq(api_key=api_key)
                 retrieved = retrieve(user_input, kb, embedder, faiss_index, top_k=3)
                 response = generate_response(user_input, retrieved, client)
-                source_titles = [doc["title"] for doc in retrieved]
-
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": response,
-                    "sources": source_titles
+                    "sources": [d["title"] for d in retrieved]
                 })
             except Exception as e:
-                st.error(f"❌ Error: {e}")
-
+                st.error(f"❌ {e}")
         st.rerun()
