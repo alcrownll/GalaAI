@@ -1,11 +1,9 @@
 import streamlit as st
 from sentence_transformers import SentenceTransformer
 import faiss
-import numpy as np
 from groq import Groq
 import os
 from dotenv import load_dotenv
-import time
 
 # ─────────────────────────────────────────
 # LOAD ENV
@@ -25,37 +23,97 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────
-# MODERN CHATBOT CSS (CHATGPT / CLAUDE STYLE)
+# THEME STATE
+# ─────────────────────────────────────────
+if "theme" not in st.session_state:
+    st.session_state.theme = "Dark"
+
+# ─────────────────────────────────────────
+# SIDEBAR THEME TOGGLE
+# ─────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## 🌴 Gala.AI")
+    st.caption("Cebu Tourism Chatbot")
+
+    theme_choice = st.radio(
+        "Theme",
+        ["Dark", "Light"],
+        index=0 if st.session_state.theme == "Dark" else 1
+    )
+    st.session_state.theme = theme_choice
+
+    st.markdown("---")
+
+# ─────────────────────────────────────────
+# CSS THEMES
+# ─────────────────────────────────────────
+if st.session_state.theme == "Dark":
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+        --bg: #0b0f17;
+        --surface: #111827;
+        --surface2: #0f172a;
+        --border: rgba(255,255,255,0.08);
+        --accent: #22c55e;
+        --accent-dim: rgba(34,197,94,0.15);
+        --ink: #f8fafc;
+        --muted: rgba(255,255,255,0.65);
+        --muted2: rgba(255,255,255,0.45);
+        --radius: 16px;
+        --radius-lg: 22px;
+        --pill: 999px;
+        --shadow: 0 12px 40px rgba(0,0,0,0.45);
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif !important;
+        background: radial-gradient(circle at top, #0f172a, #0b0f17) !important;
+        color: var(--ink) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+else:
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+        --bg: #f7f8fc;
+        --surface: #ffffff;
+        --surface2: #f0f2f8;
+        --border: rgba(0,0,0,0.08);
+        --accent: #16a34a;
+        --accent-dim: rgba(22,163,74,0.12);
+        --ink: #111827;
+        --muted: rgba(0,0,0,0.65);
+        --muted2: rgba(0,0,0,0.45);
+        --radius: 16px;
+        --radius-lg: 22px;
+        --pill: 999px;
+        --shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif !important;
+        background: radial-gradient(circle at top, #ffffff, #f7f8fc) !important;
+        color: var(--ink) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────
+# COMMON CSS (DO NOT HIDE TOOLBAR!)
 # ─────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-:root {
-    --bg: #0b0f17;
-    --surface: #111827;
-    --surface2: #0f172a;
-    --border: rgba(255,255,255,0.08);
-    --accent: #22c55e;
-    --accent-dim: rgba(34,197,94,0.15);
-    --ink: #f8fafc;
-    --muted: rgba(255,255,255,0.65);
-    --muted2: rgba(255,255,255,0.45);
-    --radius: 16px;
-    --radius-lg: 22px;
-    --pill: 999px;
-    --shadow: 0 12px 40px rgba(0,0,0,0.45);
-}
-
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif !important;
-    background: radial-gradient(circle at top, #0f172a, #0b0f17) !important;
-    color: var(--ink) !important;
-}
-
-/* Hide Streamlit junk */
+/* Hide Streamlit junk BUT keep toolbar so sidebar toggle works */
 #MainMenu, footer, header,
-[data-testid="stToolbar"],
 [data-testid="stDecoration"],
 [data-testid="stStatusWidget"] { display: none !important; }
 
@@ -65,9 +123,9 @@ html, body, [class*="css"] {
     max-width: 980px !important;
 }
 
-/* Sidebar */
+/* Sidebar styling */
 section[data-testid="stSidebar"] {
-    background: rgba(17,24,39,0.95) !important;
+    background: var(--surface2) !important;
     border-right: 1px solid var(--border) !important;
 }
 
@@ -75,18 +133,18 @@ section[data-testid="stSidebar"] {
 .stButton > button {
     border-radius: 14px !important;
     border: 1px solid var(--border) !important;
-    background: rgba(255,255,255,0.03) !important;
+    background: rgba(255,255,255,0.04) !important;
     color: var(--ink) !important;
     font-weight: 500 !important;
     transition: all 0.2s ease !important;
 }
 .stButton > button:hover {
-    background: rgba(34,197,94,0.12) !important;
+    background: var(--accent-dim) !important;
     border-color: rgba(34,197,94,0.35) !important;
     transform: translateY(-1px);
 }
 
-/* Chat message layout */
+/* Chat wrapper */
 .chat-wrap {
     padding-bottom: 120px;
 }
@@ -98,7 +156,7 @@ section[data-testid="stSidebar"] {
     margin: 1rem 0;
 }
 .user-bubble {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: linear-gradient(135deg, var(--accent), #15803d);
     color: white;
     padding: 0.85rem 1.15rem;
     border-radius: var(--radius-lg) var(--radius-lg) 6px var(--radius-lg);
@@ -119,21 +177,23 @@ section[data-testid="stSidebar"] {
     width: 38px;
     height: 38px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: linear-gradient(135deg, var(--accent), #15803d);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
     flex-shrink: 0;
+    color: white;
 }
 .bot-bubble {
-    background: rgba(255,255,255,0.03);
+    background: var(--surface);
     border: 1px solid var(--border);
     padding: 0.95rem 1.15rem;
     border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 6px;
     max-width: 80%;
     line-height: 1.75;
     font-size: 0.95rem;
+    color: var(--ink);
 }
 
 /* Sources */
@@ -150,38 +210,17 @@ section[data-testid="stSidebar"] {
     padding: 0.25rem 0.7rem;
     border-radius: var(--pill);
     background: var(--accent-dim);
-    border: 1px solid rgba(34,197,94,0.25);
+    border: 1px solid rgba(22,163,74,0.25);
     color: var(--accent);
     font-weight: 600;
 }
 
-/* Action buttons */
-.action-row {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.65rem;
-}
-.action-btn {
-    font-size: 0.75rem;
-    padding: 0.35rem 0.75rem;
-    border-radius: var(--pill);
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,0.02);
-    color: var(--muted);
-    cursor: pointer;
-}
-.action-btn:hover {
-    background: rgba(34,197,94,0.12);
-    border-color: rgba(34,197,94,0.35);
-    color: var(--accent);
-}
-
 /* Chat input */
 [data-testid="stChatInput"] > div {
-    background: rgba(255,255,255,0.03) !important;
+    background: var(--surface) !important;
     border: 1px solid var(--border) !important;
     border-radius: 20px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.35) !important;
+    box-shadow: var(--shadow) !important;
 }
 [data-testid="stChatInput"] textarea {
     color: var(--ink) !important;
@@ -200,6 +239,7 @@ section[data-testid="stSidebar"] {
     .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
     .user-bubble, .bot-bubble { max-width: 92%; }
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -251,7 +291,6 @@ def parse_knowledge_base(filepath):
 @st.cache_resource
 def load_rag_system():
     kb = parse_knowledge_base("cebu_tourism.txt")
-
     embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
     docs = [f"[{item['category']}] {item['title']}: {item['content']}" for item in kb]
@@ -279,7 +318,7 @@ def retrieve(query, kb, embedder, index, top_k=3):
 
 
 # ─────────────────────────────────────────
-# STREAMING RESPONSE (MODERN CHATBOT FEEL)
+# STREAMING RESPONSE
 # ─────────────────────────────────────────
 def stream_groq_response(query, retrieved_docs, placeholder):
     client = Groq(api_key=GROQ_API_KEY)
@@ -345,12 +384,9 @@ except Exception:
 
 
 # ─────────────────────────────────────────
-# SIDEBAR (CHATGPT STYLE)
+# SIDEBAR CONTENT
 # ─────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🌴 Gala.AI")
-    st.caption("Cebu Tourism Chatbot")
-
     if st.button("➕ New Chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.last_query = None
@@ -363,7 +399,7 @@ with st.sidebar:
     if not st.session_state.chat_titles:
         st.caption("No chat history yet.")
     else:
-        for i, title in enumerate(reversed(st.session_state.chat_titles[-8:])):
+        for title in reversed(st.session_state.chat_titles[-8:]):
             st.markdown(f"- {title}")
 
     st.markdown("---")
@@ -374,21 +410,21 @@ with st.sidebar:
 # ─────────────────────────────────────────
 # HEADER
 # ─────────────────────────────────────────
-st.markdown("""
+st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;
             padding:0.8rem 0.2rem 1rem 0.2rem;">
     <div>
         <div style="font-size:1.4rem;font-weight:700;letter-spacing:-0.5px;">
-            Gala<span style="color:#22c55e;">.AI</span>
+            Gala<span style="color:var(--accent);">.AI</span>
         </div>
-        <div style="color:rgba(255,255,255,0.65);font-size:0.85rem;">
-            Your Cebu travel guide — friendly, local, and fast 🌴
+        <div style="color:var(--muted);font-size:0.85rem;margin-top:0.15rem;">
+            Cebu travel guide — friendly local vibes 🌴
         </div>
     </div>
     <div style="padding:0.3rem 0.8rem;border-radius:999px;
-                border:1px solid rgba(255,255,255,0.08);
+                border:1px solid var(--border);
                 background:rgba(255,255,255,0.03);
-                font-size:0.75rem;font-weight:600;color:#22c55e;">
+                font-size:0.75rem;font-weight:600;color:var(--accent);">
         ● Online
     </div>
 </div>
@@ -396,53 +432,11 @@ st.markdown("""
 
 
 # ─────────────────────────────────────────
-# WELCOME SCREEN
-# ─────────────────────────────────────────
-if not st.session_state.messages:
-    st.markdown("""
-    <div style="padding:1.2rem 0 2rem 0;text-align:center;">
-        <div style="font-size:2.1rem;font-weight:700;letter-spacing:-1px;">
-            Kumusta! 👋
-        </div>
-        <div style="color:rgba(255,255,255,0.65);font-size:0.95rem;margin-top:0.6rem;">
-            Ask me about beaches, festivals, food, history, or hidden gems in Cebu.
-        </div>
-        <div style="margin-top:1.2rem;font-size:0.8rem;
-                    display:inline-block;padding:0.35rem 0.9rem;
-                    border-radius:999px;border:1px solid rgba(34,197,94,0.25);
-                    background:rgba(34,197,94,0.12);color:#22c55e;font-weight:600;">
-            Wagtang kalaay — let's plan your Cebu trip 🌴
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("### ✨ Try asking")
-    col1, col2 = st.columns(2)
-
-    suggestions = [
-        "🐋 Where can I see whale sharks in Cebu?",
-        "🎊 What is Sinulog Festival all about?",
-        "🍖 What food should I try in Cebu?",
-        "🏝️ Suggest hidden beaches in Cebu",
-        "⚔️ Who was Lapu-Lapu?",
-        "💰 Give me budget travel tips in Cebu"
-    ]
-
-    for i, s in enumerate(suggestions):
-        col = col1 if i % 2 == 0 else col2
-        with col:
-            if st.button(s, use_container_width=True, key=f"suggest_{i}"):
-                st.session_state.messages.append({"role": "user", "content": s})
-                st.session_state.last_query = s
-                st.rerun()
-
-
-# ─────────────────────────────────────────
 # CHAT FEED
 # ─────────────────────────────────────────
 st.markdown('<div class="chat-wrap">', unsafe_allow_html=True)
 
-for i, msg in enumerate(st.session_state.messages):
+for msg in st.session_state.messages:
     if msg["role"] == "user":
         st.markdown(f"""
         <div class="user-row">
@@ -472,14 +466,16 @@ st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────
-# REGENERATE BUTTON
+# ICON REGENERATE BUTTON
 # ─────────────────────────────────────────
 if st.session_state.messages:
     last_msg = st.session_state.messages[-1]
     if last_msg["role"] == "assistant":
-        if st.button("🔄 Regenerate last response", use_container_width=True):
-            st.session_state.pending_regen = True
-            st.rerun()
+        regen_col1, regen_col2 = st.columns([1, 10])
+        with regen_col1:
+            if st.button("🔄", help="Regenerate last response"):
+                st.session_state.pending_regen = True
+                st.rerun()
 
 
 # ─────────────────────────────────────────
@@ -498,20 +494,19 @@ if user_input:
 
 
 # ─────────────────────────────────────────
-# GENERATE RESPONSE (STREAMING)
+# GENERATE RESPONSE
 # ─────────────────────────────────────────
 if st.session_state.last_query and (
     (len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user")
     or st.session_state.pending_regen
 ):
 
-    # If regenerate, remove last assistant response
+    # if regenerate, remove last assistant response
     if st.session_state.pending_regen:
         if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
             st.session_state.messages.pop()
 
     query = st.session_state.last_query
-
     retrieved = retrieve(query, kb, embedder, faiss_index, top_k=3)
 
     # Placeholder streaming message
@@ -522,7 +517,6 @@ if st.session_state.last_query and (
     """, unsafe_allow_html=True)
 
     placeholder = st.empty()
-
     full_response = stream_groq_response(query, retrieved, placeholder)
 
     st.markdown("</div></div>", unsafe_allow_html=True)
