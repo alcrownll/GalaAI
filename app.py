@@ -1,10 +1,10 @@
 """
 app.py — Streamlit UI for Gala.AI.
-All HTML rendering is delegated to templates.py.
-All CSS lives in static/style.css (loaded via theme.py).
+Dark mode only. Chat history persisted via localStorage.
 """
 
 import uuid
+import json
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -15,6 +15,7 @@ from templates import (
     sidebar_empty_chats, sidebar_footer,
     main_header, welcome_hero, suggestions_label,
     user_bubble, bot_bubble, bot_bubble_streaming, bot_bubble_streaming_close,
+    local_storage_loader_js, local_storage_saver_js,
 )
 from backend import load_rag_system, retrieve, stream_groq_response
 
@@ -32,32 +33,59 @@ st.set_page_config(
 
 
 # ─────────────────────────────────────────────────────
-# SESSION STATE
+# THEME + CSS  (dark only)
+# ─────────────────────────────────────────────────────
+
+t = get_tokens(is_dark=True)
+st.markdown(build_css(t), unsafe_allow_html=True)
+components.html(build_sidebar_toggle_js(t), height=0, scrolling=False)
+
+
+# ─────────────────────────────────────────────────────
+# SESSION STATE DEFAULTS
 # ─────────────────────────────────────────────────────
 
 defaults = {
-    "messages":        [],
-    "all_chats":       [],
-    "active_chat_id":  None,
-    "last_query":      None,
-    "pending_regen":   False,
-    "dark_mode":       True,
+    "messages":           [],
+    "all_chats":          [],
+    "active_chat_id":     None,
+    "last_query":         None,
+    "pending_regen":      False,
+    "chats_loaded":       False,   # gate: localStorage load runs once
 }
 for key, val in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
-if "theme" in st.query_params:
-    st.session_state.dark_mode = (st.query_params["theme"] == "dark")
-
 
 # ─────────────────────────────────────────────────────
-# THEME + CSS
+# LOCALSTORAGE PERSISTENCE
 # ─────────────────────────────────────────────────────
 
-t = get_tokens(st.session_state.dark_mode)
-st.markdown(build_css(t), unsafe_allow_html=True)
-components.html(build_sidebar_toggle_js(t), height=0, scrolling=False)
+# 1. On first render, inject a loader that reads localStorage and
+#    posts the data back via query-param + st.query_params.
+if not st.session_state.chats_loaded:
+    # Check if chats were posted back from the JS loader
+    qp = st.query_params.to_dict()
+    if "ls_chats" in qp:
+        try:
+            loaded = json.loads(qp["ls_chats"])
+            if isinstance(loaded, list) and loaded:
+                st.session_state.all_chats = loaded
+        except Exception:
+            pass
+        # Clear the query param after reading
+        st.query_params.clear()
+        st.session_state.chats_loaded = True
+    else:
+        # Inject the JS loader — it will reload the page with ?ls_chats=...
+        components.html(local_storage_loader_js(), height=0, scrolling=False)
+        st.session_state.chats_loaded = True   # prevent infinite loop
+
+# 2. After every render, save current chats to localStorage
+if st.session_state.all_chats:
+    chats_json = json.dumps(st.session_state.all_chats)
+    components.html(local_storage_saver_js(chats_json), height=0, scrolling=False)
 
 
 # ─────────────────────────────────────────────────────
@@ -138,7 +166,7 @@ with st.sidebar:
     else:
         st.markdown(sidebar_empty_chats(t), unsafe_allow_html=True)
 
-    st.markdown(sidebar_footer(t, st.session_state.dark_mode), unsafe_allow_html=True)
+    st.markdown(sidebar_footer(t), unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────

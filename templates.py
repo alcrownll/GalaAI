@@ -1,11 +1,46 @@
 """
 templates.py — HTML rendering functions for Gala.AI.
-
-All inline HTML/CSS that was previously scattered in app.py lives here.
-app.py calls these functions and passes the result to st.markdown().
+Dark mode only. Includes localStorage persistence helpers.
 """
 
 from theme import ACCENT, ACCENT_DARK
+
+
+# ─────────────────────────────────────────────────────
+# LOCALSTORAGE HELPERS
+# ─────────────────────────────────────────────────────
+
+def local_storage_loader_js() -> str:
+    """
+    Reads gala_chats from localStorage in the parent frame and
+    redirects to ?ls_chats=<json> so Streamlit can read it via query_params.
+    Runs once on first load when there is no ls_chats param yet.
+    """
+    return """
+    <script>
+    (function() {
+        var stored = window.parent.localStorage.getItem('gala_chats');
+        if (stored && stored.length > 2) {
+            var url = window.parent.location.href.split('?')[0] + '?ls_chats=' + encodeURIComponent(stored);
+            window.parent.location.replace(url);
+        }
+    })();
+    </script>
+    """
+
+
+def local_storage_saver_js(chats_json: str) -> str:
+    """Saves the current chats JSON string to localStorage."""
+    escaped = chats_json.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+    return f"""
+    <script>
+    (function() {{
+        try {{
+            window.parent.localStorage.setItem('gala_chats', `{escaped}`);
+        }} catch(e) {{}}
+    }})();
+    </script>
+    """
 
 
 # ─────────────────────────────────────────────────────
@@ -17,8 +52,8 @@ def sidebar_logo(t: dict) -> str:
     <div style="
         display: flex;
         align-items: center;
-        gap: 0.55rem;
-        padding: 1.1rem 1.2rem 1rem 1.2rem;
+        gap: 0.6rem;
+        padding: 1.2rem 1.2rem 1.1rem 1.2rem;
         border-bottom: 1px solid {t['border']};
         background: {t['sidebar_bg']};
         position: sticky;
@@ -26,28 +61,28 @@ def sidebar_logo(t: dict) -> str:
         z-index: 10;
     ">
         <div style="
-            width: 36px; height: 36px;
-            border-radius: 11px;
+            width: 38px; height: 38px;
+            border-radius: 12px;
             background: linear-gradient(135deg, {ACCENT}, {ACCENT_DARK});
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.1rem;
-            box-shadow: 0 4px 14px rgba(34,197,94,0.35);
+            font-size: 1.15rem;
+            box-shadow: 0 4px 18px rgba(34,197,94,0.40);
             flex-shrink: 0;
         ">🌴</div>
         <div>
             <div style="
                 font-family: 'Syne', sans-serif;
                 font-weight: 700;
-                font-size: 1.05rem;
+                font-size: 1.1rem;
                 color: {t['ink']};
-                letter-spacing: -0.3px;
-                line-height: 1.2;
+                letter-spacing: -0.4px;
+                line-height: 1.15;
             ">Gala<span style="color:{ACCENT};">.AI</span></div>
             <div style="
-                font-size: 0.67rem;
+                font-size: 0.65rem;
                 color: {t['muted']};
                 font-weight: 500;
-                letter-spacing: 0.04em;
+                letter-spacing: 0.05em;
                 text-transform: uppercase;
             ">Cebu Travel Guide</div>
         </div>
@@ -57,13 +92,13 @@ def sidebar_logo(t: dict) -> str:
 
 def sidebar_section_label(t: dict, label: str) -> str:
     return f"""
-    <div style="padding: 0.75rem 1.2rem 0.3rem 1.2rem;">
+    <div style="padding: 0.8rem 1.2rem 0.3rem 1.2rem;">
         <div style="
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 700;
             color: {t['muted']};
             text-transform: uppercase;
-            letter-spacing: 0.07em;
+            letter-spacing: 0.08em;
             margin-bottom: 0.5rem;
         ">{label}</div>
     </div>
@@ -73,18 +108,17 @@ def sidebar_section_label(t: dict, label: str) -> str:
 def sidebar_recents_label(t: dict) -> str:
     return f"""
     <div style="
-        padding: 0.6rem 1.2rem 0.2rem 1.2rem;
-        font-size: 0.7rem;
+        padding: 0.7rem 1.2rem 0.25rem 1.2rem;
+        font-size: 0.68rem;
         font-weight: 700;
         color: {t['muted']};
         text-transform: uppercase;
-        letter-spacing: 0.07em;
+        letter-spacing: 0.08em;
     ">Recent</div>
     """
 
 
 def sidebar_compact_list_css() -> str:
-    """Zero-gap CSS for the recent chat button list."""
     return """
     <style>
     [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"],
@@ -106,7 +140,6 @@ def sidebar_compact_list_css() -> str:
 
 
 def sidebar_chat_item_css(t: dict, cid: str, is_active: bool) -> str:
-    """Per-item scoped CSS for a single chat button."""
     ink_col = t['ink'] if is_active else t['muted']
     bg_col  = t['chat_item_active'] if is_active else "transparent"
     bdr_col = ACCENT if is_active else "transparent"
@@ -126,8 +159,8 @@ def sidebar_chat_item_css(t: dict, cid: str, is_active: bool) -> str:
         border-radius: 0px !important;
         color: {ink_col} !important;
         font-weight: {weight} !important;
-        font-size: 0.83rem !important;
-        padding: 0.42rem 0.9rem 0.42rem 1.0rem !important;
+        font-size: 0.82rem !important;
+        padding: 0.44rem 0.9rem 0.44rem 1.05rem !important;
         text-align: left !important;
         width: 100% !important;
         overflow: hidden !important;
@@ -149,21 +182,22 @@ def sidebar_chat_item_css(t: dict, cid: str, is_active: bool) -> str:
 
 def sidebar_empty_chats(t: dict) -> str:
     return f"""
-    <div style="padding: 0.6rem 1.2rem; color: {t['muted2']}; font-size: 0.82rem; line-height: 1.5;">
+    <div style="
+        padding: 1.2rem 1.2rem;
+        color: {t['muted2']};
+        font-size: 0.82rem;
+        line-height: 1.6;
+        text-align: center;
+    ">
+        <div style="font-size: 1.6rem; margin-bottom: 0.4rem; opacity: 0.4;">💬</div>
         No previous chats yet.<br>
         <span style="color:{t['muted']};">Start a conversation below!</span>
     </div>
     """
 
 
-def sidebar_footer(t: dict, is_dark: bool) -> str:
-    next_theme   = "light" if is_dark else "dark"
-    toggle_title = "Switch to Light Mode" if is_dark else "Switch to Dark Mode"
-    if is_dark:
-        toggle_icon = """<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>"""
-    else:
-        toggle_icon = """<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>"""
-
+def sidebar_footer(t: dict) -> str:
+    """Dark-only footer — no theme toggle."""
     return f"""
     <div id="gala-footer">
         <div class="top-row">
@@ -171,12 +205,6 @@ def sidebar_footer(t: dict, is_dark: bool) -> str:
                 <div class="dot"></div>
                 <span class="status-text">Groq · RAG · Llama 3.3 70B</span>
             </div>
-            <a id="gala-mode-btn"
-               href="?theme={next_theme}"
-               target="_top"
-               title="{toggle_title}">
-                {toggle_icon}
-            </a>
         </div>
         <div class="kb-text">📍 Cebu Knowledge Base v1.0</div>
     </div>
@@ -193,64 +221,95 @@ def main_header(t: dict) -> str:
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.7rem 0.1rem 0.9rem 0.1rem;
+        padding: 0.85rem 0.1rem 1rem 0.1rem;
         border-bottom: 1px solid {t['border']};
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.5rem;
     ">
         <div>
             <div style="
                 font-family: 'Syne', sans-serif;
                 font-weight: 800;
-                font-size: 1.35rem;
+                font-size: 1.4rem;
                 color: {t['ink']};
-                letter-spacing: -0.5px;
-                line-height: 1.2;
+                letter-spacing: -0.6px;
+                line-height: 1.15;
             ">Kumusta! 👋</div>
-            <div style="color:{t['muted']}; font-size: 0.83rem; margin-top: 0.15rem;">
+            <div style="color:{t['muted']}; font-size: 0.84rem; margin-top: 0.2rem; line-height: 1.5;">
                 Ask me anything about Cebu — beaches, food, festivals, history &amp; more.
             </div>
         </div>
         <div style="
-            padding: 0.3rem 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.32rem 0.9rem;
             border-radius: 999px;
-            border: 1px solid rgba(34,197,94,0.25);
-            background: rgba(34,197,94,0.12);
-            font-size: 0.72rem;
+            border: 1px solid rgba(34,197,94,0.22);
+            background: rgba(34,197,94,0.10);
+            font-size: 0.7rem;
             font-weight: 700;
             color: {ACCENT};
             letter-spacing: 0.04em;
             white-space: nowrap;
-        ">● ONLINE</div>
+        ">
+            <span style="
+                display:inline-block;
+                width:6px;height:6px;
+                border-radius:50%;
+                background:{ACCENT};
+                box-shadow:0 0 6px {ACCENT};
+                animation: pulse 2s infinite;
+            "></span>
+            ONLINE
+        </div>
     </div>
+    <style>
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; }}
+        50%       {{ opacity: 0.4; }}
+    }}
+    </style>
     """
 
 
 def welcome_hero(t: dict) -> str:
     return f"""
-    <div style="padding: 1.4rem 0 0.5rem 0; text-align: center;">
-        <div style="font-size: 2.6rem; margin-bottom: 0.3rem;">🌴</div>
+    <div style="padding: 2rem 0 0.8rem 0; text-align: center;">
+        <div style="
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px; height: 72px;
+            border-radius: 22px;
+            background: linear-gradient(135deg, {ACCENT}, {ACCENT_DARK});
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 8px 32px rgba(34,197,94,0.35);
+        ">🌴</div>
         <div style="
             font-family: 'Syne', sans-serif;
-            font-size: 1.45rem;
-            font-weight: 700;
+            font-size: 1.6rem;
+            font-weight: 800;
             color: {t['ink']};
-            letter-spacing: -0.5px;
+            letter-spacing: -0.6px;
+            line-height: 1.2;
         ">Your Cebu Travel Guide</div>
         <div style="
             color: {t['muted']};
-            font-size: 0.88rem;
-            margin-top: 0.4rem;
-            max-width: 420px;
+            font-size: 0.9rem;
+            margin-top: 0.55rem;
+            max-width: 400px;
             margin-left: auto;
             margin-right: auto;
-        ">Powered by local knowledge and AI. Friendly, fast, and a little bit Bisaya.</div>
+            line-height: 1.6;
+        ">Powered by local knowledge and AI.<br>Friendly, fast, and a little bit Bisaya.</div>
         <div style="
             display: inline-block;
-            margin-top: 1rem;
-            padding: 0.3rem 1rem;
+            margin-top: 1.1rem;
+            padding: 0.35rem 1.1rem;
             border-radius: 999px;
-            border: 1px solid rgba(34,197,94,0.28);
-            background: rgba(34,197,94,0.12);
+            border: 1px solid rgba(34,197,94,0.25);
+            background: rgba(34,197,94,0.10);
             color: {ACCENT};
             font-size: 0.75rem;
             font-weight: 700;
@@ -263,12 +322,12 @@ def welcome_hero(t: dict) -> str:
 def suggestions_label(t: dict) -> str:
     return f"""
     <div style="
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         font-weight: 700;
         color: {t['muted']};
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin: 1.2rem 0 0.65rem 0;
+        letter-spacing: 0.09em;
+        margin: 1.4rem 0 0.7rem 0;
     ">✨ Try asking</div>
     """
 
@@ -300,7 +359,6 @@ def bot_bubble(content: str, sources: list) -> str:
 
 
 def bot_bubble_streaming() -> str:
-    """Empty bot bubble shell used while streaming a response."""
     return """
     <div class="bot-row">
         <div class="bot-avi">🌴</div>

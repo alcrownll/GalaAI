@@ -1,15 +1,6 @@
 """
 theme.py — Design tokens and CSS loader for Gala.AI.
-
-Reads static/style.css, substitutes CSS variable values from the
-active theme tokens, and returns a <style> block ready for
-st.markdown(..., unsafe_allow_html=True).
-
-Public API
-----------
-get_tokens(is_dark)             →  dict of CSS values
-build_css(tokens)               →  <style>…</style> string
-build_sidebar_toggle_js(tokens) →  <script>…</script> string
+Dark mode only.
 """
 
 import pathlib
@@ -18,68 +9,37 @@ ACCENT      = "#22c55e"
 ACCENT_DARK = "#16a34a"
 SIDEBAR_W   = "260px"
 
-# Path to the external CSS file
 _CSS_PATH = pathlib.Path(__file__).parent / "static" / "style.css"
 
 
-def get_tokens(is_dark: bool) -> dict:
-    if is_dark:
-        return dict(
-            bg="#0c111d",
-            surface="#111827",
-            surface2="#1a2235",
-            surface3="#1e2a40",
-            border="rgba(255,255,255,0.07)",
-            border2="rgba(255,255,255,0.12)",
-            ink="#f1f5f9",
-            muted="rgba(255,255,255,0.55)",
-            muted2="rgba(255,255,255,0.35)",
-            bubble_user_grad=f"linear-gradient(135deg, {ACCENT}, {ACCENT_DARK})",
-            bubble_bot_bg="rgba(255,255,255,0.03)",
-            bubble_bot_bdr="rgba(255,255,255,0.07)",
-            sidebar_bg="#0a0e17",
-            sidebar_bdr="rgba(255,255,255,0.06)",
-            input_bg="rgba(255,255,255,0.04)",
-            pill_bg="rgba(34,197,94,0.12)",
-            pill_bdr="rgba(34,197,94,0.28)",
-            chat_item_active="rgba(34,197,94,0.10)",
-            shadow="0 16px 48px rgba(0,0,0,0.55)",
-            scrollbar_thumb="rgba(255,255,255,0.10)",
-            footer_bg="rgba(10,14,23,0.98)",
-        )
+def get_tokens(is_dark: bool = True) -> dict:
+    # Always dark — light mode removed
     return dict(
-        bg="#f0f4f8",
-        surface="#ffffff",
-        surface2="#e8f0e9",
-        surface3="#d4e8d8",
-        border="rgba(0,0,0,0.08)",
-        border2="rgba(0,0,0,0.14)",
-        ink="#0f172a",
-        muted="rgba(0,0,0,0.55)",
-        muted2="rgba(0,0,0,0.38)",
+        bg="#0a0d14",
+        surface="#111827",
+        surface2="#151d2e",
+        surface3="#1a2538",
+        border="rgba(255,255,255,0.06)",
+        border2="rgba(255,255,255,0.10)",
+        ink="#e8edf5",
+        muted="rgba(232,237,245,0.50)",
+        muted2="rgba(232,237,245,0.28)",
         bubble_user_grad=f"linear-gradient(135deg, {ACCENT}, {ACCENT_DARK})",
-        bubble_bot_bg="#ffffff",
-        bubble_bot_bdr="rgba(0,0,0,0.08)",
-        sidebar_bg="#ffffff",
-        sidebar_bdr="rgba(0,0,0,0.08)",
-        input_bg="#ffffff",
+        bubble_bot_bg="rgba(255,255,255,0.03)",
+        bubble_bot_bdr="rgba(255,255,255,0.07)",
+        sidebar_bg="#080b11",
+        sidebar_bdr="rgba(255,255,255,0.05)",
+        input_bg="rgba(255,255,255,0.04)",
         pill_bg="rgba(34,197,94,0.12)",
-        pill_bdr="rgba(34,197,94,0.30)",
-        chat_item_active="rgba(34,197,94,0.10)",
-        shadow="0 4px 20px rgba(0,0,0,0.08)",
-        scrollbar_thumb="rgba(0,0,0,0.12)",
-        footer_bg="#f8fafb",
+        pill_bdr="rgba(34,197,94,0.28)",
+        chat_item_active="rgba(34,197,94,0.08)",
+        shadow="0 20px 60px rgba(0,0,0,0.70)",
+        scrollbar_thumb="rgba(255,255,255,0.08)",
+        footer_bg="rgba(8,11,17,0.98)",
     )
 
 
 def build_css(tokens: dict) -> str:
-    """
-    Read static/style.css, substitute all [[key]] placeholders with
-    the matching token value, and wrap in a <style> tag.
-
-    Uses [[key]] markers instead of {key} so Python's str.format()
-    doesn't clash with the curly braces in regular CSS rules.
-    """
     raw_css = _CSS_PATH.read_text(encoding="utf-8")
     for key, value in tokens.items():
         raw_css = raw_css.replace(f"[[{key}]]", value)
@@ -87,9 +47,6 @@ def build_css(tokens: dict) -> str:
 
 
 def build_sidebar_toggle_js(t: dict) -> str:
-    """
-    Injects a floating hamburger/X button and locks sidebar width.
-    """
     return f"""
 <script>
 (function() {{
@@ -120,7 +77,7 @@ def build_sidebar_toggle_js(t: dict) -> str:
     const btn = doc.createElement('div');
     btn.id = 'gala-burger';
     btn.title = 'Toggle sidebar';
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="1" y="3" width="16" height="2" rx="1" fill="currentColor"/>
       <rect x="1" y="8" width="16" height="2" rx="1" fill="currentColor"/>
       <rect x="1" y="13" width="16" height="2" rx="1" fill="currentColor"/>
@@ -141,14 +98,14 @@ def build_sidebar_toggle_js(t: dict) -> str:
         alignItems:     'center',
         justifyContent: 'center',
         cursor:         'pointer',
-        boxShadow:      '0 2px 12px rgba(0,0,0,0.18)',
+        boxShadow:      '0 2px 12px rgba(0,0,0,0.35)',
         transition:     'all 0.18s ease',
         userSelect:     'none',
     }});
 
     btn.onmouseenter = () => {{
-        btn.style.background   = '{ACCENT}';
-        btn.style.borderColor  = '{ACCENT}';
+        btn.style.background   = '#22c55e';
+        btn.style.borderColor  = '#22c55e';
         btn.style.color        = 'white';
         btn.style.transform    = 'scale(1.06)';
     }};
