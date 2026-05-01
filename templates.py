@@ -1,46 +1,9 @@
 """
 templates.py — HTML rendering functions for Gala.AI.
-Dark mode only. Includes localStorage persistence helpers.
+Dark mode only. localStorage helpers removed (replaced by persistence.py).
 """
 
 from theme import ACCENT, ACCENT_DARK
-
-
-# ─────────────────────────────────────────────────────
-# LOCALSTORAGE HELPERS
-# ─────────────────────────────────────────────────────
-
-def local_storage_loader_js() -> str:
-    """
-    Reads gala_chats from localStorage in the parent frame and
-    redirects to ?ls_chats=<json> so Streamlit can read it via query_params.
-    Runs once on first load when there is no ls_chats param yet.
-    """
-    return """
-    <script>
-    (function() {
-        var stored = window.parent.localStorage.getItem('gala_chats');
-        if (stored && stored.length > 2) {
-            var url = window.parent.location.href.split('?')[0] + '?ls_chats=' + encodeURIComponent(stored);
-            window.parent.location.replace(url);
-        }
-    })();
-    </script>
-    """
-
-
-def local_storage_saver_js(chats_json: str) -> str:
-    """Saves the current chats JSON string to localStorage."""
-    escaped = chats_json.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
-    return f"""
-    <script>
-    (function() {{
-        try {{
-            window.parent.localStorage.setItem('gala_chats', `{escaped}`);
-        }} catch(e) {{}}
-    }})();
-    </script>
-    """
 
 
 # ─────────────────────────────────────────────────────
@@ -53,7 +16,7 @@ def sidebar_logo(t: dict) -> str:
         display: flex;
         align-items: center;
         gap: 0.6rem;
-        padding: 1.2rem 1.2rem 1.1rem 1.2rem;
+        padding: 0.55rem 1.2rem 0.75rem 1.2rem;
         border-bottom: 1px solid {t['border']};
         background: {t['sidebar_bg']};
         position: sticky;
@@ -197,7 +160,6 @@ def sidebar_empty_chats(t: dict) -> str:
 
 
 def sidebar_footer(t: dict) -> str:
-    """Dark-only footer — no theme toggle."""
     return f"""
     <div id="gala-footer">
         <div class="top-row">
@@ -367,4 +329,4 @@ def bot_bubble_streaming() -> str:
 
 
 def bot_bubble_streaming_close() -> str:
-    return "</div></div>"
+    return "</div></div>"       

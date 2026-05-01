@@ -13,7 +13,6 @@ _CSS_PATH = pathlib.Path(__file__).parent / "static" / "style.css"
 
 
 def get_tokens(is_dark: bool = True) -> dict:
-    # Always dark — light mode removed
     return dict(
         bg="#0a0d14",
         surface="#111827",
@@ -52,78 +51,55 @@ def build_sidebar_toggle_js(t: dict) -> str:
 (function() {{
     const doc = window.parent.document;
 
-    function lockSidebarWidth() {{
-        const sb = doc.querySelector('section[data-testid="stSidebar"]');
-        if (!sb) return;
-        const inner = sb.querySelector(':scope > div');
-        if (inner) {{
-            inner.style.minWidth = '260px';
-            inner.style.maxWidth = '260px';
-            inner.style.width    = '260px';
-        }}
-        const handle = sb.querySelector('[data-testid="stSidebarResizeHandle"], .resize-handle, [class*="ResizeHandle"]');
-        if (handle) {{
-            handle.style.display = 'none';
-            handle.style.pointerEvents = 'none';
-        }}
-        sb.style.minWidth = '260px';
-        sb.style.maxWidth = '260px';
+    // ── Inject adaptive CSS once ──────────────────────────────
+    if (!doc.getElementById('gala-adaptive-css')) {{
+        const style = doc.createElement('style');
+        style.id = 'gala-adaptive-css';
+        style.textContent = `
+            /* Shift main content right when sidebar is collapsed
+               so the burger button doesn't overlap chat bubbles */
+            body.gala-sidebar-closed [data-testid="stAppViewBlockContainer"],
+            body.gala-sidebar-closed .block-container {{
+                padding-left: 3.8rem !important;
+                max-width: 100% !important;
+            }}
+            /* Smooth burger button transition */
+            #gala-burger {{
+                transition: background 0.18s ease, border-color 0.18s ease,
+                            color 0.18s ease, transform 0.18s ease !important;
+            }}
+        `;
+        doc.head.appendChild(style);
     }}
 
-    setInterval(lockSidebarWidth, 500);
-
-    if (doc.getElementById('gala-burger')) return;
-
-    const btn = doc.createElement('div');
-    btn.id = 'gala-burger';
-    btn.title = 'Toggle sidebar';
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <rect x="1" y="3" width="16" height="2" rx="1" fill="currentColor"/>
-      <rect x="1" y="8" width="16" height="2" rx="1" fill="currentColor"/>
-      <rect x="1" y="13" width="16" height="2" rx="1" fill="currentColor"/>
+    // ── Icons: sidebar-panel style ────────────────────────────
+    // "Collapse" = sidebar is open, click will close it  → arrow points left
+    const ICON_COLLAPSE = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <rect x="1" y="1" width="16" height="16" rx="3"
+              stroke="currentColor" stroke-width="1.5"/>
+        <line x1="6.5" y1="1.5" x2="6.5" y2="16.5"
+              stroke="currentColor" stroke-width="1.5"/>
+        <polyline points="10,6 8,9 10,12"
+                  stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </svg>`;
 
-    Object.assign(btn.style, {{
-        position:       'fixed',
-        top:            '12px',
-        left:           '12px',
-        zIndex:         '999999',
-        width:          '36px',
-        height:         '36px',
-        borderRadius:   '10px',
-        background:     '{t['surface']}',
-        border:         '1px solid {t['border2']}',
-        color:          '{t['muted']}',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        cursor:         'pointer',
-        boxShadow:      '0 2px 12px rgba(0,0,0,0.35)',
-        transition:     'all 0.18s ease',
-        userSelect:     'none',
-    }});
+    // "Expand" = sidebar is closed, click will open it   → arrow points right
+    const ICON_EXPAND = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <rect x="1" y="1" width="16" height="16" rx="3"
+              stroke="currentColor" stroke-width="1.5"/>
+        <line x1="6.5" y1="1.5" x2="6.5" y2="16.5"
+              stroke="currentColor" stroke-width="1.5"/>
+        <polyline points="8,6 10,9 8,12"
+                  stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`;
 
-    btn.onmouseenter = () => {{
-        btn.style.background   = '#22c55e';
-        btn.style.borderColor  = '#22c55e';
-        btn.style.color        = 'white';
-        btn.style.transform    = 'scale(1.06)';
-    }};
-    btn.onmouseleave = () => {{
-        btn.style.background   = '{t['surface']}';
-        btn.style.borderColor  = '{t['border2']}';
-        btn.style.color        = '{t['muted']}';
-        btn.style.transform    = 'scale(1)';
-    }};
-
-    doc.body.appendChild(btn);
-
-    const getSidebar = () => doc.querySelector('section[data-testid="stSidebar"]');
-
+    // ── Helpers ───────────────────────────────────────────────
+    const getSidebar    = () => doc.querySelector('section[data-testid="stSidebar"]');
     const isSidebarOpen = () => {{
         const sb = getSidebar();
-        if (!sb) return false;
-        return sb.getBoundingClientRect().width > 60;
+        return sb ? sb.getBoundingClientRect().width > 60 : false;
     }};
 
     const findNativeToggle = () => {{
@@ -146,32 +122,104 @@ def build_sidebar_toggle_js(t: dict) -> str:
         return null;
     }};
 
-    const ICONS = {{
-        open:  `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="2" rx="1" fill="currentColor"/><rect x="1" y="8" width="16" height="2" rx="1" fill="currentColor"/><rect x="1" y="13" width="16" height="2" rx="1" fill="currentColor"/></svg>`,
-        close: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+    // ── Lock sidebar width & hide resize handle ───────────────
+    const lockSidebarWidth = () => {{
+        const sb = getSidebar();
+        if (!sb || !isSidebarOpen()) return;
+        const inner = sb.querySelector(':scope > div');
+        if (inner) {{
+            inner.style.cssText += ';min-width:260px!important;max-width:260px!important;width:260px!important';
+        }}
+        const handle = sb.querySelector(
+            '[data-testid="stSidebarResizeHandle"],.resize-handle,[class*="ResizeHandle"]'
+        );
+        if (handle) {{ handle.style.display = 'none'; handle.style.pointerEvents = 'none'; }}
+        sb.style.cssText += ';min-width:260px!important;max-width:260px!important';
     }};
 
-    const syncIcon = () => {{
-        btn.innerHTML = isSidebarOpen() ? ICONS.close : ICONS.open;
+    // ── Master sync: icon + body class + width lock ───────────
+    const syncState = () => {{
+        const open = isSidebarOpen();
+        const btn  = doc.getElementById('gala-burger');
+        if (!btn) return;
+
+        btn.innerHTML = open ? ICON_COLLAPSE : ICON_EXPAND;
+        btn.title     = open ? 'Collapse sidebar' : 'Expand sidebar';
+
+        doc.body.classList.toggle('gala-sidebar-open',   open);
+        doc.body.classList.toggle('gala-sidebar-closed', !open);
+
+        if (open) lockSidebarWidth();
     }};
+
+    // ── Create button (only once across reruns) ───────────────
+    if (doc.getElementById('gala-burger')) {{
+        // Button already in DOM from a previous render — just re-sync icon
+        syncState();
+        return;
+    }}
+
+    const btn = doc.createElement('div');
+    btn.id = 'gala-burger';
+    btn.title = 'Collapse sidebar';
+
+    Object.assign(btn.style, {{
+        position:       'fixed',
+        top:            '12px',
+        left:           '12px',
+        zIndex:         '999999',
+        width:          '36px',
+        height:         '36px',
+        borderRadius:   '10px',
+        background:     '{t['surface']}',
+        border:         '1px solid {t['border2']}',
+        color:          '{t['muted']}',
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        cursor:         'pointer',
+        boxShadow:      '0 2px 12px rgba(0,0,0,0.35)',
+        userSelect:     'none',
+        lineHeight:     '1',
+    }});
+
+    btn.onmouseenter = () => {{
+        btn.style.background   = '#22c55e';
+        btn.style.borderColor  = '#22c55e';
+        btn.style.color        = 'white';
+        btn.style.transform    = 'scale(1.06)';
+    }};
+    btn.onmouseleave = () => {{
+        btn.style.background   = '{t['surface']}';
+        btn.style.borderColor  = '{t['border2']}';
+        btn.style.color        = '{t['muted']}';
+        btn.style.transform    = 'scale(1)';
+    }};
+
+    doc.body.appendChild(btn);
 
     btn.addEventListener('click', () => {{
         const native = findNativeToggle();
         if (native) native.click();
-        setTimeout(syncIcon, 350);
+        // Sync icon after CSS transition settles (~350 ms)
+        setTimeout(syncState, 380);
+        setTimeout(syncState, 700);   // second pass in case transition is slow
     }});
 
-    const poll = setInterval(() => {{
-        if (getSidebar()) {{ syncIcon(); clearInterval(poll); }}
+    // ── Watch sidebar for width changes (most reliable) ───────
+    const waitForSidebar = setInterval(() => {{
+        const sb = getSidebar();
+        if (!sb) return;
+        clearInterval(waitForSidebar);
+        syncState();
+        new ResizeObserver(syncState).observe(sb);
     }}, 150);
 
-    const waitObs = setInterval(() => {{
-        const sb = getSidebar();
-        if (sb) {{
-            new ResizeObserver(syncIcon).observe(sb);
-            clearInterval(waitObs);
-        }}
-    }}, 200);
+    // ── Periodic heartbeat: re-sync after Streamlit reruns ────
+    // Reruns can swap the native toggle DOM node, so we keep polling.
+    setInterval(syncState,     800);
+    setInterval(lockSidebarWidth, 600);
+
 }})();
 </script>
 """

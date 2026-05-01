@@ -1,0 +1,40 @@
+[
+  {
+    "id": "fc5f78b9-c5de-4663-a0ca-8a47c2c5c187",
+    "title": "🍖  What food should I try in Cebu?",
+    "messages": [
+      {
+        "role": "user",
+        "content": "🍖  What food should I try in Cebu?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dali!, you're in for a treat. Cebu is a foodie's paradise, and you gotta try our famous lechon - it's the best in the Philippines, Nindot kaayo! You should also try sutukil, it's a must-try, a combination of three dishes: sugba (grilled), tula (stewed), and kilaw (raw). And don't forget to try our puso, or hanging rice, it's a classic Cebuano snack. Maayong biyahe! \n\nIf you're looking for a great place to try these dishes, I suggest checking out Larsian BBQ in Fuente Osmena, it's a popular street food destination.",
+        "sources": [
+          "What to Eat in Cebu",
+          "Budget Tips for Visiting Cebu",
+          "Getting Around Cebu"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "84522272-896c-41ea-af9f-b5f5d06578ab",
+    "title": "🐋  Where can I see whale sharks in…",
+    "messages": [
+      {
+        "role": "user",
+        "content": "🐋  Where can I see whale sharks in Cebu?"
+      },
+      {
+        "role": "assistant",
+        "content": "Dali! You're looking to see some whale sharks, di ba? Maayong biyahe! You can find these gentle giants in Oslob, southern Cebu. It's a bit of a drive from Cebu City, around 3-4 hours, but it's definitely worth it. You can swim alongside them, but remember, no touching, okay? They're protected, and we want to keep them safe. Best to go early morning, around 6-7 am, to avoid the crowds. Nindot kaayo, right? \n\nWant to know more about the briefing you need to attend before swimming with the whale sharks?",
+        "sources": [
+          "Oslob Whale Shark Watching",
+          "Malapascua Island",
+          "Moalboal"
+        ]
+      }
+    ]
+  }
+]

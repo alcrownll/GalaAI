@@ -1,23 +1,22 @@
 """
 app.py — Streamlit UI for Gala.AI.
-Dark mode only. Chat history persisted via localStorage.
+Dark mode only. Chat history persisted via local JSON file.
 """
 
 import uuid
-import json
 import streamlit as st
-import streamlit.components.v1 as components
 
-from theme     import get_tokens, build_css, build_sidebar_toggle_js
-from templates import (
+from theme      import get_tokens, build_css, build_sidebar_toggle_js
+from templates  import (
     sidebar_logo, sidebar_section_label, sidebar_recents_label,
     sidebar_compact_list_css, sidebar_chat_item_css,
     sidebar_empty_chats, sidebar_footer,
     main_header, welcome_hero, suggestions_label,
     user_bubble, bot_bubble, bot_bubble_streaming, bot_bubble_streaming_close,
-    local_storage_loader_js, local_storage_saver_js,
 )
-from backend import load_rag_system, retrieve, stream_groq_response
+from backend    import load_rag_system, retrieve, stream_groq_response
+from persistence import load_chats, save_chats
+import streamlit.components.v1 as components
 
 
 # ─────────────────────────────────────────────────────
@@ -46,12 +45,12 @@ components.html(build_sidebar_toggle_js(t), height=0, scrolling=False)
 # ─────────────────────────────────────────────────────
 
 defaults = {
-    "messages":           [],
-    "all_chats":          [],
-    "active_chat_id":     None,
-    "last_query":         None,
-    "pending_regen":      False,
-    "chats_loaded":       False,   # gate: localStorage load runs once
+    "messages":          [],
+    "all_chats":         [],
+    "active_chat_id":    None,
+    "last_query":        None,
+    "pending_regen":     False,
+    "chats_loaded":      False,
 }
 for key, val in defaults.items():
     if key not in st.session_state:
@@ -59,33 +58,12 @@ for key, val in defaults.items():
 
 
 # ─────────────────────────────────────────────────────
-# LOCALSTORAGE PERSISTENCE
+# LOAD CHAT HISTORY (once per session)
 # ─────────────────────────────────────────────────────
 
-# 1. On first render, inject a loader that reads localStorage and
-#    posts the data back via query-param + st.query_params.
 if not st.session_state.chats_loaded:
-    # Check if chats were posted back from the JS loader
-    qp = st.query_params.to_dict()
-    if "ls_chats" in qp:
-        try:
-            loaded = json.loads(qp["ls_chats"])
-            if isinstance(loaded, list) and loaded:
-                st.session_state.all_chats = loaded
-        except Exception:
-            pass
-        # Clear the query param after reading
-        st.query_params.clear()
-        st.session_state.chats_loaded = True
-    else:
-        # Inject the JS loader — it will reload the page with ?ls_chats=...
-        components.html(local_storage_loader_js(), height=0, scrolling=False)
-        st.session_state.chats_loaded = True   # prevent infinite loop
-
-# 2. After every render, save current chats to localStorage
-if st.session_state.all_chats:
-    chats_json = json.dumps(st.session_state.all_chats)
-    components.html(local_storage_saver_js(chats_json), height=0, scrolling=False)
+    st.session_state.all_chats  = load_chats()
+    st.session_state.chats_loaded = True
 
 
 # ─────────────────────────────────────────────────────
@@ -104,6 +82,9 @@ except Exception:
 # ─────────────────────────────────────────────────────
 
 def _upsert_active_chat(messages: list, move_to_top: bool = False):
+    """
+    Insert or update the active chat in all_chats, then persist to disk.
+    """
     if not messages:
         return
 
@@ -119,6 +100,7 @@ def _upsert_active_chat(messages: list, move_to_top: bool = False):
             chats[idx]["title"]    = title
             if move_to_top and idx != 0:
                 chats.insert(0, chats.pop(idx))
+            save_chats(chats)
             return
 
     new_id = str(uuid.uuid4())
@@ -128,6 +110,7 @@ def _upsert_active_chat(messages: list, move_to_top: bool = False):
         "messages": messages.copy(),
     })
     st.session_state.active_chat_id = new_id
+    save_chats(st.session_state.all_chats)
 
 
 # ─────────────────────────────────────────────────────
